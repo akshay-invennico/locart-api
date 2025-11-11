@@ -1,0 +1,664 @@
+tags:
+  - name: Clients
+    description: Endpoints for managing clients, including fetching, suspending, and retrieving detailed overviews.
+
+paths:
+  /api/v1/client:
+    get:
+      summary: Get all clients
+      description: Fetches paginated client records with filters for search, status, date range, and spending.
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (default 1)
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          description: Number of clients per page (default 10)
+          schema:
+            type: integer
+            example: 10
+        - name: search
+          in: query
+          description: Search clients by name, email, or phone number
+          schema:
+            type: string
+            example: "John"
+        - name: status
+          in: query
+          description: Filter clients by status
+          schema:
+            type: string
+            enum: [active, suspended, archived]
+            example: active
+        - name: joinedFrom
+          in: query
+          description: Filter clients who joined on or after this date (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-01-01"
+        - name: joinedTo
+          in: query
+          description: Filter clients who joined on or before this date (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-12-31"
+        - name: minSpent
+          in: query
+          description: Minimum total amount spent filter
+          schema:
+            type: number
+            example: 100
+        - name: maxSpent
+          in: query
+          description: Maximum total amount spent filter
+          schema:
+            type: number
+            example: 5000
+        - name: sortBy
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            enum: [name, joinedOn, totalSpent, loyaltyPoints]
+            example: joinedOn
+        - name: sortOrder
+          in: query
+          description: Sort direction (asc or desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+            example: desc
+      responses:
+        "200":
+          description: Successfully fetched clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  meta:
+                    type: object
+                    properties:
+                      currentPage:
+                        type: integer
+                        example: 1
+                      totalPages:
+                        type: integer
+                        example: 5
+                      totalClients:
+                        type: integer
+                        example: 45
+                  clients:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: "64b123abc9f4a2..."
+                        name:
+                          type: string
+                          example: "John Doe"
+                        email:
+                          type: string
+                          example: "john@example.com"
+                        phone:
+                          type: string
+                          example: "+911234567890"
+                        joinedOn:
+                          type: string
+                          format: date-time
+                          example: "2024-05-10T10:20:00Z"
+                        totalBookings:
+                          type: integer
+                          example: 8
+                        productOrders:
+                          type: integer
+                          example: 4
+                        totalSpent:
+                          type: number
+                          example: 2500
+                        status:
+                          type: string
+                          example: "active"
+        "500":
+          description: Server error while fetching clients
+
+  /api/v1/client/{clientId}/archive:
+    patch:
+      summary: Suspend or archive a client
+      description: Suspends a client by ID and records the suspension reason.
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          description: ID of the client to suspend
+          schema:
+            type: string
+            example: "64b123abc9f4a2..."
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  example: "Violation of terms"
+      responses:
+        "200":
+          description: Client archived successfully
+        "400":
+          description: Invalid clientId
+        "404":
+          description: Client not found
+        "500":
+          description: Server error while archiving client
+
+  /api/v1/client/{clientId}/overview:
+    get:
+      summary: Get client overview
+      description: Fetches client profile details and summary statistics such as total bookings, product orders, and total spent.
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          description: Client ID to fetch overview for
+          schema:
+            type: string
+            example: "64b123abc9f4a2..."
+      responses:
+        "200":
+          description: Successfully fetched client overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  summaryBoxes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          example: "totalBookings"
+                        value:
+                          type: number
+                          example: 5
+                        message:
+                          type: string
+                          example: "5 Total Bookings"
+                  client:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "64b123abc9f4a2..."
+                      name:
+                        type: string
+                        example: "John Doe"
+                      email:
+                        type: string
+                        example: "john@example.com"
+                      phone:
+                        type: string
+                        example: "+911234567890"
+                      status:
+                        type: string
+                        example: "active"
+                      suspendedReason:
+                        type: string
+                        example: null
+        "404":
+          description: Client not found
+        "500":
+          description: Server error while fetching overview
+
+  /api/v1/client/{clientId}/bookings:
+    get:
+      summary: Get all bookings of a client
+      description: Returns a paginated list of bookings for a specific client with filters for status, date, stylist, and amount.
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          description: Client ID to fetch bookings for
+          schema:
+            type: string
+            example: "64b123abc9f4a2..."
+        - name: page
+          in: query
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            example: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+            example: "completed"
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            example: "2024-01-01"
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            example: "2024-12-31"
+        - name: minAmount
+          in: query
+          schema:
+            type: number
+            example: 100
+        - name: maxAmount
+          in: query
+          schema:
+            type: number
+            example: 1000
+        - name: timeFrom
+          in: query
+          schema:
+            type: string
+            example: "10:00"
+        - name: timeTo
+          in: query
+          schema:
+            type: string
+            example: "18:00"
+        - name: stylistId
+          in: query
+          schema:
+            type: string
+            example: "64b9876d9f1234..."
+        - name: serviceType
+          in: query
+          schema:
+            type: string
+            example: "Haircut"
+      responses:
+        "200":
+          description: Successfully fetched client bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  meta:
+                    type: object
+                    properties:
+                      current_page:
+                        type: integer
+                        example: 1
+                      total_pages:
+                        type: integer
+                        example: 3
+                      total_bookings:
+                        type: integer
+                        example: 25
+                  bookings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        booking_id:
+                          type: string
+                          example: "64b98ef123aa90..."
+                        date:
+                          type: string
+                          example: "2024-05-10"
+                        time:
+                          type: string
+                          example: "10:30 AM"
+                        stylist:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              example: "64b77c9a321f5b..."
+                            name:
+                              type: string
+                              example: "Lisa Ray"
+                        salon:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              example: "64a9ee9f832ac4..."
+                            name:
+                              type: string
+                              example: "Elite Salon"
+                        amount_paid:
+                          type: number
+                          example: 1500
+                        status:
+                          type: string
+                          example: "completed"
+        "400":
+          description: Invalid clientId
+        "500":
+          description: Server error while fetching client bookings
+
+  /api/v1/client/{clientId}/orders:
+    get:
+      summary: Get all orders of a client
+      description: Returns a paginated list of product orders placed by a client with filtering by delivery status, date, amount, and category.
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          description: ID of the client
+          schema:
+            type: string
+            example: "64b123abc9f4a2..."
+        - name: page
+          in: query
+          description: Page number for pagination (default 1)
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          description: Number of records per page (default 10)
+          schema:
+            type: integer
+            example: 10
+        - name: deliveryStatus
+          in: query
+          description: Filter by order status (e.g. pending, shipped, delivered, completed)
+          schema:
+            type: string
+            example: "delivered"
+        - name: dateFrom
+          in: query
+          description: Filter orders created on or after this date (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-01-01"
+        - name: dateTo
+          in: query
+          description: Filter orders created on or before this date (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-12-31"
+        - name: minAmount
+          in: query
+          description: Minimum total amount filter
+          schema:
+            type: number
+            example: 100
+        - name: maxAmount
+          in: query
+          description: Maximum total amount filter
+          schema:
+            type: number
+            example: 5000
+        - name: category
+          in: query
+          description: Filter by product category ID (comma-separated IDs or "all")
+          schema:
+            type: string
+            example: "64b999fabc123,64b998ab99a888"
+      responses:
+        "200":
+          description: Successfully fetched client orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  meta:
+                    type: object
+                    properties:
+                      current_page:
+                        type: integer
+                        example: 1
+                      total_pages:
+                        type: integer
+                        example: 2
+                      total_orders:
+                        type: integer
+                        example: 25
+                  orders:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        order_id:
+                          type: string
+                          example: "64b9abcde321f9..."
+                        order_number:
+                          type: string
+                          example: "#ORD10021"
+                        order_date:
+                          type: string
+                          example: "2024-08-15"
+                        amount_paid:
+                          type: number
+                          example: 1200
+                        delivery_status:
+                          type: string
+                          example: "delivered"
+                        products:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              productId:
+                                type: string
+                                example: "64b987abc123f..."
+                              name:
+                                type: string
+                                example: "Hair Serum"
+                              avatar:
+                                type: string
+                                example: "https://cdn.example.com/products/serum.jpg"
+                              category:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                      example: "64b998ff12a3b..."
+                                    name:
+                                      type: string
+                                      example: "Hair Care"
+        "400":
+          description: Invalid clientId
+        "500":
+          description: Server error while fetching client orders
+
+  /api/v1/client/{clientId}/suspend:
+    put:
+      summary: Suspend a client
+      description: Suspends a client account and records the reason. Only applicable to clients with the customer role.
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          description: Client ID to suspend
+          schema:
+            type: string
+            example: "64b123abc9f4a2..."
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  example: "Repeated policy violations"
+      responses:
+        "200":
+          description: Client suspended successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Client suspended successfully"
+                  client:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "64b123abc9f4a2..."
+                      name:
+                        type: string
+                        example: "John Doe"
+                      email:
+                        type: string
+                        example: "john@example.com"
+                      phone:
+                        type: string
+                        example: "+911234567890"
+                      status:
+                        type: string
+                        example: "suspended"
+                      suspension_reason:
+                        type: string
+                        example: "Repeated policy violations"
+        "400":
+          description: Invalid client ID
+        "404":
+          description: Client not found or not a customer
+        "500":
+          description: Server error while suspending client
+
+  /api/v1/client/{clientId}/reactivate:
+    put:
+      summary: Reactivate a suspended client
+      description: Reactivates a previously suspended client account and resets the suspension reason.
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          description: Client ID to reactivate
+          schema:
+            type: string
+            example: "64b123abc9f4a2..."
+      responses:
+        "200":
+          description: Client reactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Client reactivated successfully"
+                  client:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "64b123abc9f4a2..."
+                      name:
+                        type: string
+                        example: "John Doe"
+                      email:
+                        type: string
+                        example: "john@example.com"
+                      phone:
+                        type: string
+                        example: "+911234567890"
+                      status:
+                        type: string
+                        example: "active"
+        "400":
+          description: Invalid client ID or client not suspended
+        "404":
+          description: Client not found or not a customer
+        "500":
+          description: Server error while reactivating client
+
+  /api/v1/client/{clientId}/reset-password-link:
+    post:
+      summary: Send password reset link to a client
+      description: Sends a password reset email to an active client’s registered email address. The link expires in 15 minutes.
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          description: Client ID to send reset password link
+          schema:
+            type: string
+            example: "64b123abc9f4a2..."
+      responses:
+        "200":
+          description: Password reset link sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Password reset link sent successfully to john@example.com"
+        "400":
+          description: Invalid client ID or client not active
+        "404":
+          description: Client not found
+        "500":
+          description: Server error while sending reset password link

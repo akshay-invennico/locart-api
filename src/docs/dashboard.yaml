@@ -1,0 +1,127 @@
+tags:
+  - name: Dashboard
+    description: Metrics, analytics, and reports for admin/merchant dashboard.
+
+paths:
+  /api/v1/dashboard/summary:
+    get:
+      summary: Get overall dashboard summary
+      description: Returns yearly analytics data such as clients, stylists, revenues, and today’s appointments.
+      tags: [Dashboard]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: Filter summary data by year (default = current year)
+      responses:
+        "200":
+          description: Dashboard summary fetched successfully.
+        "500":
+          description: Server error while fetching summary.
+
+  /api/v1/dashboard/booking-overview:
+    get:
+      summary: Get booking overview statistics
+      description: Returns total bookings grouped by day, week, month, or year.
+      tags: [Dashboard]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: year
+          description: Grouping type for booking overview.
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: Year for which to retrieve booking data.
+        - name: month
+          in: query
+          schema:
+            type: integer
+          description: Month number (1–12) for "month" or "day" filters.
+      responses:
+        "200":
+          description: Booking overview retrieved successfully.
+        "500":
+          description: Server error while fetching booking overview.
+
+  /api/v1/dashboard/today-appointments:
+    get:
+      summary: Get today’s appointment statistics
+      description: Returns total pending and completed appointments for the current day.
+      tags: [Dashboard]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Appointment summary for today retrieved successfully.
+        "500":
+          description: Server error while fetching today's appointments.
+
+  /api/v1/dashboard/top-stylists:
+    get:
+      summary: Get top performing stylists
+      description: Returns list of top stylists ranked by appointments and revenue.
+      tags: [Dashboard]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+          description: Number of top stylists to retrieve.
+      responses:
+        "200":
+          description: Top stylists retrieved successfully.
+        "500":
+          description: Server error while fetching stylists.
+
+  /api/v1/dashboard/top-selling-products:
+    get:
+      summary: Get top selling products
+      description: Returns list of top products ranked by units sold and revenue generated.
+      tags: [Dashboard]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+          description: Number of top products to retrieve.
+      responses:
+        "200":
+          description: Top selling products retrieved successfully.
+        "500":
+          description: Server error while fetching top products.
+
+  /api/v1/dashboard/recent-activities:
+    get:
+      summary: Get recent activities
+      description: Returns list of recent user, booking, and order activities for dashboard feed.
+      tags: [Dashboard]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Number of recent activities to fetch.
+      responses:
+        "200":
+          description: Recent activities retrieved successfully.
+        "500":
+          description: Server error while fetching activities.

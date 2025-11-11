@@ -1,0 +1,198 @@
+tags:
+  - name: Auth
+    description: Authentication and authorization related APIs
+
+paths:
+  /api/v1/auth/register:
+    post:
+      summary: Register a new merchant account
+      description: Creates a new merchant and admin user, assigns roles, and returns access and refresh tokens.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - merchantName
+                - businessName
+                - email
+                - password
+              properties:
+                merchantName:
+                  type: string
+                  example: "John Doe"
+                businessName:
+                  type: string
+                  example: "John's Salon"
+                email:
+                  type: string
+                  example: "merchant@example.com"
+                phone:
+                  type: string
+                  example: "+919876543210"
+                password:
+                  type: string
+                  example: "Secure@123"
+      responses:
+        "201":
+          description: Merchant registered successfully
+        "400":
+          description: Merchant already exists
+        "500":
+          description: Internal server error
+
+  /api/v1/auth/login:
+    post:
+      summary: Login user
+      description: Logs in a user and returns access and refresh tokens.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  example: "merchant@example.com"
+                password:
+                  type: string
+                  example: "Secure@123"
+      responses:
+        "200":
+          description: Login successful
+        "400":
+          description: Missing email or password
+        "401":
+          description: Invalid credentials
+        "500":
+          description: Internal server error
+
+  /api/v1/auth/me:
+    get:
+      summary: Get my user details
+      description: Returns authenticated user's profile information.
+      security:
+        - bearerAuth: []
+      tags: [Auth]
+      responses:
+        "200":
+          description: User details fetched successfully
+        "401":
+          description: Unauthorized - No user found
+        "500":
+          description: Internal server error
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Generates a new access token using a valid refresh token.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        "200":
+          description: Token refreshed successfully
+        "401":
+          description: Invalid or expired refresh token
+
+  /api/v1/auth/logout:
+    post:
+      summary: Logout user
+      description: Invalidates user's refresh token and ends session.
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User logged out successfully
+        "401":
+          description: Unauthorized or invalid token
+
+  /api/v1/auth/forgot-password:
+    post:
+      summary: Request password reset link
+      description: Sends a password reset email with a secure link.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  example: "merchant@example.com"
+      responses:
+        "200":
+          description: Password reset link sent successfully
+        "500":
+          description: Server error
+
+  /api/v1/auth/verify-reset-token/{token}:
+    get:
+      summary: Verify reset token validity
+      description: Checks if the password reset token is valid or expired.
+      tags: [Auth]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Password reset token
+      responses:
+        "200":
+          description: Token is valid
+        "400":
+          description: Invalid or expired token
+        "500":
+          description: Server error
+
+  /api/v1/auth/reset-password:
+    post:
+      summary: Reset user password
+      description: Resets user's password using a valid token.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - password
+              properties:
+                token:
+                  type: string
+                  example: "4e5d8f0a-2b6d-4f7f-9e8a-9f2c1eacb4f5"
+                password:
+                  type: string
+                  example: "NewPassword@123"
+      responses:
+        "200":
+          description: Password updated successfully
+        "400":
+          description: Invalid or expired token
+        "500":
+          description: Server error

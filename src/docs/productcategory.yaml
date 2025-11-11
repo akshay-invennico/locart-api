@@ -1,0 +1,268 @@
+tags:
+  - name: Product Category
+    description: Product Category Module.
+
+
+paths:
+  /api/v1/ecom/category:
+    post:
+      summary: Create a new product category
+      description: Allows a merchant to create a new product category, optionally including a single image upload.
+      tags: [Product Category]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - status
+              properties:
+                name:
+                  type: string
+                  example: "Hair Care"
+                description:
+                  type: string
+                  example: "Shampoos, conditioners, and hair masks."
+                status:
+                  type: string
+                  enum: [active, inactive]
+                  example: "active"
+                file:
+                  type: string
+                  format: binary
+                  description: Optional image file for the category.
+      responses:
+        "201":
+          description: Product category created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProductCategory'
+        "400":
+          description: Bad Request (e.g., Category with this name already exists)
+        "500":
+          description: Server Error (e.g., Failed to upload image)
+
+    get:
+      summary: Get all product categories
+      description: Retrieves a paginated and sortable list of product categories, with filtering by status and search by name.
+      tags: [Product Category]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: search
+          schema:
+            type: string
+            description: Search term for category name (case-insensitive).
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, inactive]
+            description: Filter by category status.
+      responses:
+        "200":
+          description: List of product categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 42
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      categories:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            categoryName:
+                              type: string
+                            productsCount:
+                              type: integer
+                            status:
+                              type: string
+                            description:
+                              type: string
+        "500":
+          description: Internal server error
+
+  /api/v1/ecom/category/{id}:
+    get:
+      summary: Get single product category by ID
+      description: Retrieves the details of a specific product category.
+      tags: [Product Category]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the product category.
+            example: "60c728b792e3a10015b6d5f7"
+      responses:
+        "200":
+          description: Product category retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProductCategory'
+        "404":
+          description: Product category not found
+        "500":
+          description: Internal server error
+
+    patch:
+      summary: Update product category
+      description: Allows a merchant to update category details, including replacing the category image. Uses PATCH method for partial update, but `multipart/form-data` is required if a file is included.
+      tags: [Product Category]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the product category.
+            example: "60c728b792e3a10015b6d5f7"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Hair Care Products"
+                description:
+                  type: string
+                  example: "Updated description for hair products."
+                status:
+                  type: string
+                  enum: [active, inactive]
+                  example: "active"
+                file:
+                  type: string
+                  format: binary
+                  description: New image file for the category (replaces old one).
+      responses:
+        "200":
+          description: Product category updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProductCategory'
+        "400":
+          description: Bad Request (e.g., Category name conflict)
+        "404":
+          description: Product category not found
+        "500":
+          description: Server Error (e.g., Failed to upload image)
+
+    delete:
+      summary: Soft Delete product category
+      description: Marks the product category as deleted by setting `deleted_at` field.
+      tags: [Product Category]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the product category.
+            example: "60c728b792e3a10015b6d5f7"
+      responses:
+        "200":
+          description: Product category deleted successfully
+        "404":
+          description: Product category not found
+        "500":
+          description: Internal server error
+
+components:
+  schemas:
+    ProductCategory:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60c728b792e3a10015b6d5f7"
+        name:
+          type: string
+          example: "Hair Care"
+        description:
+          type: string
+          example: "Shampoos, conditioners, and hair masks."
+        slug:
+          type: string
+          example: "hair-care"
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+        image:
+          type: string
+          format: url
+          nullable: true
+          example: "https://s3.aws.com/categories/image.jpg"
+        order:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

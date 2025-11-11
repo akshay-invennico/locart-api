@@ -1,0 +1,425 @@
+tags:
+  - name: Stylists
+    description: Stylists Module.
+
+paths:
+  /api/v1/store/stylists:
+    post:
+      summary: Create a New Stylist
+      description: Allows a merchant to create a new stylist account linked to their salon. A User account is created automatically, and initial login credentials are provided in the response.
+      tags: [Stylist Management]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StylistCreationRequest'
+      responses:
+        "201":
+          description: Stylist and linked user created successfully. Returns temporary credentials.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  stylist:
+                    $ref: '#/components/schemas/StylistResponse'
+                  credentials:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                      password:
+                        type: string
+                        description: Temporary generated password.
+        "400":
+          description: Validation error or Stylist with this email already exists.
+        "403":
+          description: Only merchants can create stylists.
+        "404":
+          description: Merchant or Salon not found.
+        "500":
+          description: Internal server error.
+
+    get:
+      summary: Get All Stylists (Paginated List)
+      description: Retrieves a paginated list of all stylists across all salons (or the merchant's salons, based on implementation). Includes basic user and stylist stats.
+      tags: [Stylist Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of items per page.
+      responses:
+        "200":
+          description: Stylists fetched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StylistListResponse'
+        "500":
+          description: Internal server error.
+
+    patch:
+      summary: Update Stylist Details
+      description: Updates the user and stylist profile details. Requires the `stylistId` as a query parameter.
+      tags: [Stylist Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: stylistId
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the stylist to update.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StylistUpdateRequest'
+      responses:
+        "200":
+          description: Stylist updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  stylist:
+                    $ref: '#/components/schemas/StylistResponse'
+        "400":
+          description: `stylistId` query parameter is missing.
+        "403":
+          description: Not authorized (only merchants).
+        "404":
+          description: Stylist not found or does not belong to the merchant's salon.
+        "500":
+          description: Internal server error.
+
+  /api/v1/store/stylists/{id}:
+    get:
+      summary: Get Single Stylist Details
+      description: Retrieves full details for a specific stylist by ID, restricted to the owning merchant.
+      tags: [Stylist Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the stylist.
+      responses:
+        "200":
+          description: Stylist details retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  stylist:
+                    $ref: '#/components/schemas/StylistDetailedResponse'
+        "403":
+          description: Only merchants can view stylist details.
+        "404":
+          description: Stylist not found or does not belong to the merchant's salon.
+        "500":
+          description: Internal server error.
+
+    delete:
+      summary: Soft Delete Stylist
+      description: Soft deletes the stylist by ID and sets their status to inactive.
+      tags: [Stylist Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the stylist to delete.
+      responses:
+        "200":
+          description: Stylist soft-deleted successfully.
+        "400":
+          description: `stylistId` path parameter is missing.
+        "403":
+          description: Not authorized (only merchants).
+        "404":
+          description: Stylist not found or does not belong to the merchant's salon.
+        "500":
+          description: Internal server error.
+
+  /api/v1/store/stylists/timeslots:
+    get:
+      summary: Get Stylist Time Slots
+      description: Retrieves available time slots for a stylist, either for a specific date or for the next 7 days.
+      tags: [Stylist Availability]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: stylist_id
+          required: true
+          schema:
+            type: string
+            description: The ID of the stylist.
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+            description: Specific date for which to check availability (YYYY-MM-DD). If omitted, returns slots for the next 7 days.
+        - in: query
+          name: duration
+          schema:
+            type: integer
+            default: 60
+            description: The duration of the service (in minutes) to determine slot length.
+      responses:
+        "200":
+          description: Time slots fetched successfully.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TimeSlotsSingleDayResponse'
+                  - $ref: '#/components/schemas/TimeSlotsSevenDayResponse'
+        "400":
+          description: `stylist_id` is required.
+        "404":
+          description: Stylist not found.
+        "500":
+          description: Server Error.
+
+components:
+  schemas:
+    WorkingHours:
+      type: object
+      properties:
+        start:
+          type: string
+          format: time
+          example: "09:00"
+        end:
+          type: string
+          format: time
+          example: "17:00"
+
+    StylistCreationRequest:
+      type: object
+      required:
+        - fullName
+        - email
+        - phoneNumber
+        - services
+        - workingDays
+        - workingHours
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phoneNumber:
+          type: string
+        services:
+          type: array
+          items:
+            type: string
+            description: MongoDB ID of an available service.
+          description: List of service IDs the stylist offers.
+        workingDays:
+          type: array
+          items:
+            type: string
+            enum: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+        workingHours:
+          $ref: '#/components/schemas/WorkingHours'
+        experience:
+          type: integer
+          description: Years of experience.
+        status:
+          type: string
+          enum: [active, inactive, on_leave]
+          default: active
+        profilePhoto:
+          type: string
+          format: binary
+          description: Profile photo file upload (optional).
+
+    StylistUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/StylistCreationRequest'
+        - type: object
+          properties:
+            fullName:
+              description: New full name.
+            email:
+              description: New email address.
+            phoneNumber:
+              description: New phone number.
+            experience:
+              description: New years of experience.
+
+    StylistResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        services:
+          type: array
+          items:
+            type: string
+        workingDays:
+          type: array
+          items:
+            type: string
+        workingHours:
+          $ref: '#/components/schemas/WorkingHours'
+        experience_years:
+          type: integer
+        status:
+          type: string
+        profilePhoto:
+          type: string
+          format: url
+          nullable: true
+        totalBookings:
+          type: integer
+        totalEarnings:
+          type: number
+        rating:
+          type: number
+          format: float
+
+    StylistDetailedResponse:
+      allOf:
+        - $ref: '#/components/schemas/StylistResponse'
+        - type: object
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    StylistListItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        avatarUrl:
+          type: string
+          format: url
+          nullable: true
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        joinedOn:
+          type: string
+          format: date-time
+          nullable: true
+        totalBookings:
+          type: integer
+        totalEarnings:
+          type: number
+        rating:
+          type: number
+          format: float
+        status:
+          type: string
+
+    StylistListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            stylists:
+              type: array
+              items:
+                $ref: '#/components/schemas/StylistListItem'
+            pagination:
+              type: object
+              properties:
+                total:
+                  type: integer
+                page:
+                  type: integer
+                limit:
+                  type: integer
+                totalPages:
+                  type: integer
+
+    TimeSlots:
+      type: object
+      properties:
+        am:
+          type: array
+          items:
+            type: string
+            format: time
+            example: "09:00"
+        pm:
+          type: array
+          items:
+            type: string
+            format: time
+            example: "13:30"
+
+    TimeSlotsSingleDayResponse:
+      type: object
+      description: Response when `date` query param is provided.
+      properties:
+        success:
+          type: boolean
+        slots:
+          $ref: '#/components/schemas/TimeSlots'
+
+    TimeSlotsSevenDayResponse:
+      type: object
+      description: Response when `date` query param is omitted (next 7 days).
+      properties:
+        success:
+          type: boolean
+        availability:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TimeSlots'
+          description: A map where keys are dates (YYYY-MM-DD) and values are TimeSlots objects.

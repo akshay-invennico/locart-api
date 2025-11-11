@@ -1,0 +1,299 @@
+tags:
+  - name: Service
+    description: Service Module.
+
+paths:
+  /api/v1/services:
+    post:
+      summary: Create a New Service
+      description: Allows a merchant to create a new service. The service is automatically associated with all of the merchant's active salons via the SalonService model.
+      tags: [Service Management]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceCreationRequest'
+      responses:
+        "201":
+          description: Service created successfully and added to all salons.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Service'
+        "400":
+          description: Validation error (e.g., duration less than 15 minutes).
+        "404":
+          description: Merchant not found.
+        "500":
+          description: Server Error.
+
+    get:
+      summary: Get All Services (Public/Filterable)
+      description: Retrieves a paginated list of active services associated with any salon (via SalonService). Supports filtering by name, price, duration, and status.
+      tags: [Service Management]
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term to filter services by name (case-insensitive regex).
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, inactive]
+          description: Filter by service deletion status.
+        - in: query
+          name: minPrice
+          schema:
+            type: number
+          description: Minimum base price filter.
+        - in: query
+          name: maxPrice
+          schema:
+            type: number
+          description: Maximum base price filter.
+        - in: query
+          name: duration
+          schema:
+            type: integer
+          description: Filter by exact service duration (in minutes).
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of items per page.
+      responses:
+        "200":
+          description: Services fetched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceListResponse'
+        "500":
+          description: Server Error.
+
+  /api/v1/services/{id}:
+    get:
+      summary: Get Single Service by ID (Merchant)
+      description: Retrieves the details of a specific service, authorized only for the owning merchant.
+      tags: [Service Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the service.
+      responses:
+        "200":
+          description: Service details retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Service'
+        "404":
+          description: Merchant or Service not found.
+        "500":
+          description: Server Error.
+
+    patch:
+      summary: Update Service Details
+      description: Updates the mutable details of an existing service.
+      tags: [Service Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the service to update.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdateRequest'
+      responses:
+        "200":
+          description: Service updated successfully.
+        "404":
+          description: Merchant or Service not found.
+        "500":
+          description: Server Error.
+
+    delete:
+      summary: Soft Delete a Service
+      description: Performs a soft deletion of the service by setting the `deleted_at` timestamp.
+      tags: [Service Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the service to delete.
+      responses:
+        "200":
+          description: Service soft deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      deleted_at:
+                        type: string
+                        format: date-time
+        "404":
+          description: Merchant or Service not found.
+        "500":
+          description: Server Error.
+
+components:
+  schemas:
+    ServiceCreationRequest:
+      type: object
+      required:
+        - name
+        - duration
+        - base_price
+      properties:
+        name:
+          type: string
+          example: "Haircut & Style"
+        description:
+          type: string
+          example: "Includes wash, precision cut, and blow dry styling."
+          nullable: true
+        icon:
+          type: string
+          format: url
+          description: URL or string representing the service icon.
+          nullable: true
+        duration:
+          type: integer
+          minimum: 15
+          description: Duration of the service in minutes (minimum 15).
+          example: 45
+        base_price:
+          type: number
+          format: float
+          description: Starting price of the service.
+          example: 55.00
+
+    ServiceUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+          format: url
+        duration:
+          type: integer
+          minimum: 15
+        base_price:
+          type: number
+          format: float
+
+    Service:
+      allOf:
+        - $ref: '#/components/schemas/ServiceCreationRequest'
+        - type: object
+          properties:
+            _id:
+              type: string
+              example: "60c72b2f90d19f0015b67288"
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+            deleted_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: Timestamp if the service is soft-deleted.
+
+    ServiceListItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        serviceName:
+          type: string
+        iconUrl:
+          type: string
+          format: url
+        basePrice:
+          type: number
+          format: float
+        duration:
+          type: integer
+        serviceStatus:
+          type: string
+          enum: [Active, Inactive]
+
+    ServiceListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            services:
+              type: array
+              items:
+                $ref: '#/components/schemas/ServiceListItem'
+            pagination:
+              type: object
+              properties:
+                total:
+                  type: integer
+                  description: Total number of services matching the query.
+                page:
+                  type: integer
+                  description: Current page number.
+                limit:
+                  type: integer
+                  description: Items per page.
+                totalPages:
+                  type: integer
+                  description: Total number of pages.
+

@@ -1,0 +1,531 @@
+tags:
+  - name: Salon
+    description: Salon Module.
+
+paths:
+  /api/v1/store:
+    post:
+      summary: Create Merchant's Salon
+      description: Allows a merchant to create their single salon profile. Only one salon per merchant is allowed.
+      tags: [Salon Management]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SalonCreationRequest'
+      responses:
+        "201":
+          description: Salon created successfully
+        "400":
+          description: Salon with this email already exists, or merchant already has a salon
+        "404":
+          description: Merchant profile not found
+        "500":
+          description: Server Error
+
+    get:
+      summary: Get Merchant's Salon Details
+      description: Retrieves the currently authenticated merchant's salon profile.
+      tags: [Salon Management]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Salon retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Salon'
+        "404":
+          description: Merchant profile or Salon not found
+        "500":
+          description: Server Error
+
+    patch:
+      summary: Update Salon Amenities
+      description: Adds or replaces the list of amenities (by ID) associated with the merchant's salon.
+      tags: [Salon Management]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amenities:
+                  type: array
+                  items:
+                    type: string
+                    description: MongoDB ID of an amenity.
+                  description: Array of amenity IDs to associate with the salon. Empty array removes all amenities.
+      responses:
+        "200":
+          description: Amenities updated successfully
+        "404":
+          description: Merchant profile or Salon not found
+        "500":
+          description: Server Error
+
+  /api/v1/store/{id}:
+    get:
+      summary: Get Single Salon Details by ID (Authorized Merchant)
+      description: Retrieves a specific salon profile by ID, restricted to the owning merchant.
+      tags: [Salon Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the salon.
+      responses:
+        "200":
+          description: Salon retrieved successfully
+        "404":
+          description: Salon not found or not authorized
+        "500":
+          description: Server Error
+
+    patch:
+      summary: Update Salon Details
+      description: Updates the main details of the specified salon.
+      tags: [Salon Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the salon.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SalonUpdateRequest'
+      responses:
+        "200":
+          description: Salon updated successfully
+        "400":
+          description: A salon with the new email already exists
+        "404":
+          description: Merchant profile or Salon not found
+        "500":
+          description: Server Error
+
+    delete:
+      summary: Soft Delete Salon
+      description: Performs a soft deletion of the specified salon by setting the `deleted_at` timestamp.
+      tags: [Salon Management]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the salon.
+      responses:
+        "200":
+          description: Salon deleted successfully (soft delete)
+        "404":
+          description: Salon not found
+        "500":
+          description: Server Error
+
+  /api/v1/store/availability/operating-hours:
+    get:
+      summary: Get Salon Operating Hours
+      description: Retrieves the current operating hours for the merchant's salon.
+      tags: [Salon Availability]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Availability retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OperatingHour'
+        "404":
+          description: Salon not found
+        "500":
+          description: Server Error
+    post:
+      summary: Add/Update Salon Operating Hours
+      description: Sets or updates the operating hours for one or more days for the merchant's salon.
+      tags: [Salon Availability]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - salonId
+                - availability
+              properties:
+                salonId:
+                  type: string
+                  description: The ID of the salon to update.
+                availability:
+                  type: array
+                  description: Array of day/time objects. Existing days are updated, new days are added.
+                  items:
+                    $ref: '#/components/schemas/OperatingHour'
+      responses:
+        "200":
+          description: Operating hours updated successfully
+        "400":
+          description: Validation failed (e.g., missing 'day' field)
+        "403":
+          description: Not authorized to modify this salon
+        "404":
+          description: Salon not found
+        "500":
+          description: Server Error
+
+  /api/v1/store/availability/holidays:
+    post:
+      summary: Add a Holiday
+      description: Adds a new public/specific holiday closure date for a salon.
+      tags: [Salon Availability]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - salonId
+                - date
+                - occasion
+              properties:
+                salonId:
+                  type: string
+                  description: The ID of the salon.
+                date:
+                  type: string
+                  format: date
+                  description: The date of the holiday (YYYY-MM-DD).
+                  example: "2026-12-25"
+                occasion:
+                  type: string
+                  example: "Christmas Day"
+                description:
+                  type: string
+                  nullable: true
+                  example: "Closed for the whole day."
+      responses:
+        "201":
+          description: Holiday added successfully
+        "400":
+          description: Missing required fields or validation failure
+        "403":
+          description: Not authorized to modify this salon
+        "404":
+          description: Salon or Merchant not found
+        "409":
+          description: A holiday already exists for this date
+        "500":
+          description: Server Error
+    get:
+      summary: Get Salon Holidays
+      description: Retrieves all active holidays for the merchant's store, optionally filtered by date range.
+      tags: [Salon Availability]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: fromDate
+          schema:
+            type: string
+            format: date
+            description: Start date for filter (YYYY-MM-DD).
+        - in: query
+          name: toDate
+          schema:
+            type: string
+            format: date
+            description: End date for filter (YYYY-MM-DD).
+      responses:
+        "200":
+          description: Holidays fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Holiday'
+        "404":
+          description: Merchant or Salon not found
+        "500":
+          description: Server Error
+    patch:
+      summary: Edit a Holiday
+      description: Updates the details of a specific holiday using its ID (provided as a query parameter).
+      tags: [Salon Availability]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the holiday to edit.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date:
+                  type: string
+                  format: date
+                  description: New date of the holiday (YYYY-MM-DD).
+                occasion:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Holiday updated successfully
+        "400":
+          description: Validation failed or ID missing
+        "403":
+          description: Not authorized to edit this holiday
+        "404":
+          description: Holiday not found
+        "500":
+          description: Server Error
+    delete:
+      summary: Delete a Holiday (Soft Delete)
+      description: Performs a soft deletion of a specific holiday using its ID (provided as a query parameter).
+      tags: [Salon Availability]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the holiday to delete.
+      responses:
+        "200":
+          description: Holiday deleted successfully
+        "403":
+          description: Not authorized to delete this holiday
+        "404":
+          description: Holiday not found
+        "500":
+          description: Server Error
+
+components:
+  schemas:
+    SalonCreationRequest:
+      type: object
+      required:
+        - name
+        - streetAddress
+        - city
+        - state
+        - zipCode
+        - phone
+        - email
+      properties:
+        name:
+          type: string
+          example: "The Beauty Spot"
+        streetAddress:
+          type: string
+          example: "123 Main St"
+        city:
+          type: string
+          example: "Anytown"
+        state:
+          type: string
+          example: "CA"
+        zipCode:
+          type: string
+          example: "90210"
+        mapLink:
+          type: string
+          example: "https://maps.google.com/link"
+        phone:
+          type: string
+          example: "+15551234567"
+        email:
+          type: string
+          format: email
+          example: "contact@beautyspot.com"
+        website:
+          type: string
+          example: "https://www.beautyspot.com"
+        facebook:
+          type: string
+          example: "fb.com/thebeautyspot"
+        instagram:
+          type: string
+          example: "instagram.com/beautyspot"
+        tiktok:
+          type: string
+        twitter:
+          type: string
+        about:
+          type: string
+          example: "A brief description of the salon."
+
+    SalonUpdateRequest:
+      type: object
+      description: Used for PATCH, all fields are optional.
+      properties:
+        name:
+          type: string
+        streetAddress:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+        mapLink:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        website:
+          type: string
+        facebook:
+          type: string
+        instagram:
+          type: string
+        tiktok:
+          type: string
+        twitter:
+          type: string
+        about:
+          type: string
+        logo:
+          type: string
+          format: url
+          description: URL of the salon logo.
+        coverImage:
+          type: string
+          format: url
+          description: URL of the salon cover image.
+
+    Salon:
+      allOf:
+        - $ref: '#/components/schemas/SalonCreationRequest'
+        - type: object
+          properties:
+            _id:
+              type: string
+            merchant_id:
+              type: string
+            logo:
+              type: string
+              format: url
+            coverImage:
+              type: string
+              format: url
+            operatingHours:
+              type: array
+              items:
+                $ref: '#/components/schemas/OperatingHour'
+            amenities:
+              type: array
+              items:
+                type: string
+                description: Array of Amenity IDs.
+            created_at:
+              type: string
+              format: date-time
+            deleted_at:
+              type: string
+              format: date-time
+              nullable: true
+
+    OperatingHour:
+      type: object
+      required:
+        - day
+        - isOpen
+      properties:
+        day:
+          type: string
+          enum: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+          description: The day of the week.
+        open:
+          type: string
+          format: time
+          nullable: true
+          example: "09:00"
+        close:
+          type: string
+          format: time
+          nullable: true
+          example: "17:00"
+        isOpen:
+          type: boolean
+          description: Whether the salon is open on this day.
+
+    Holiday:
+      type: object
+      properties:
+        _id:
+          type: string
+        date:
+          type: string
+          format: date
+        day:
+          type: string
+          enum: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+        occasion:
+          type: string
+        description:
+          type: string
+          nullable: true
+        salon_id:
+          type: string
+        merchant_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time

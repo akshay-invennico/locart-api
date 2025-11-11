@@ -1,0 +1,233 @@
+tags:
+  - name: Product
+    description: Product Module.
+
+paths:
+  /api/v1/product:
+    post:
+      summary: Create a new product
+      description: Allows a merchant to create a new product, including uploading multiple product images to S3.
+      tags: [Product]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - description
+                - status
+                - stock_quantity
+                - category_id
+                - unit_price
+              properties:
+                name:
+                  type: string
+                  example: "Keratin Smooth Shampoo"
+                description:
+                  type: string
+                  example: "A premium shampoo enriched with keratin for silky, smooth hair."
+                status:
+                  type: string
+                  enum: [draft, published, archived]
+                  example: "published"
+                stock_quantity:
+                  type: integer
+                  example: 50
+                category_id:
+                  type: string
+                  description: MongoDB ID of the product category.
+                  example: "60c728b792e3a10015b6d5f7"
+                unit_price:
+                  type: number
+                  format: float
+                  example: 599.99
+                files:
+                  type: array
+                  description: Array of product images to upload. (Max 10 images)
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        "201":
+          description: Product created successfully
+        "400":
+          description: Bad Request (e.g., Product with this name already exists)
+        "404":
+          description: Merchant or Salon not found
+        "500":
+          description: Server Error (e.g., Failed to upload images)
+
+    get:
+      summary: Get all products (Merchant view)
+      description: Retrieves a paginated list of products belonging to the authenticated merchant, with extensive filtering options.
+      tags: [Product]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            description: Search term for product name (case-insensitive regex).
+        - in: query
+          name: category
+          schema:
+            type: string
+            description: Filter by category_id.
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, published, archived]
+            description: Filter by product status.
+        - in: query
+          name: priceMin
+          schema:
+            type: number
+            description: Minimum unit price filter.
+        - in: query
+          name: priceMax
+          schema:
+            type: number
+            description: Maximum unit price filter.
+        - in: query
+          name: stockMin
+          schema:
+            type: integer
+            description: Minimum stock quantity filter.
+        - in: query
+          name: stockMax
+          schema:
+            type: integer
+            description: Maximum stock quantity filter.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: List of products retrieved successfully
+        "404":
+          description: Merchant not found
+        "500":
+          description: Internal server error
+
+  /api/v1/product/{id}:
+    get:
+      summary: Get single product details
+      description: Retrieves details for a specific product by its ID.
+      tags: [Product]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the product.
+            example: "60c728b792e3a10015b6d5f8"
+      responses:
+        "200":
+          description: Product details retrieved successfully
+        "404":
+          description: Product not found or soft-deleted
+        "500":
+          description: Internal server error
+
+    patch:
+      summary: Update product details
+      description: Updates product fields and handles image additions/deletions/replacements using multipart/form-data.
+      tags: [Product]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the product.
+            example: "60c728b792e3a10015b6d5f8"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Keratin Smooth Shampoo (New Formula)"
+                description:
+                  type: string
+                  example: "Updated description..."
+                status:
+                  type: string
+                  enum: [draft, published, archived]
+                stock_quantity:
+                  type: integer
+                  example: 45
+                category_id:
+                  type: string
+                  description: MongoDB ID of the product category.
+                unit_price:
+                  type: number
+                  format: float
+                  example: 650.00
+                images_to_delete:
+                  type: array
+                  description: Array of image URLs (strings) to be deleted from S3 and the product.
+                  items:
+                    type: string
+                    example: "https://s3.aws.com/products/img1.jpg"
+                replace_all_images:
+                  type: string
+                  enum: ["true", "false"]
+                  default: "false"
+                  description: Set to "true" to delete all existing images before adding new ones.
+                files:
+                  type: array
+                  description: Array of NEW product images to upload.
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        "200":
+          description: Product updated successfully
+        "404":
+          description: Product not found or soft-deleted
+        "500":
+          description: Server Error (e.g., Failed to upload/delete images)
+
+    delete:
+      summary: Soft-delete a product
+      description: Sets the `deleted_at` field on the product, effectively removing it from view (soft deletion).
+      tags: [Product]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the product.
+            example: "60c728b792e3a10015b6d5f8"
+      responses:
+        "200":
+          description: Product deleted successfully
+        "404":
+          description: Product not found or already soft-deleted
+        "500":
+          description: Internal server error

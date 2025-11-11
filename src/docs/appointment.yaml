@@ -1,0 +1,272 @@
+tags:
+  - name: Appointments
+    description: Endpoints for booking and scheduling appointment
+
+paths:
+  /api/v1/appointment:
+    post:
+      summary: Create a new appointment
+      description: Creates a new booking for a client, assigns a stylist, and records payment details.
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client:
+                  type: object
+                  example:
+                    type: "new"
+                    name: "John Doe"
+                    email: "john@example.com"
+                    phone: "9876543210"
+                service_id:
+                  type: string
+                  example: "64a8f82a3d1f89001a3c12b5"
+                stylist_id:
+                  type: string
+                  example: "64a8f82a3d1f89001a3c1299"
+                date:
+                  type: string
+                  example: "2025-11-04"
+                time_slot:
+                  type: string
+                  example: "10:30"
+                amount:
+                  type: number
+                  example: 2000
+                payable_amount:
+                  type: number
+                  example: 1800
+                payment_status:
+                  type: string
+                  example: "paid"
+                payment_method:
+                  type: string
+                  example: "upi"
+                booking_status:
+                  type: string
+                  example: "confirmed"
+      responses:
+        "201":
+          description: Booking created successfully
+        "400":
+          description: Invalid request or stylist unavailable
+        "500":
+          description: Internal server error
+
+    get:
+      summary: Get all bookings with filters
+      description: Returns paginated list of bookings filtered by status, date, stylist, service, and amount range.
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: array
+            items:
+              type: string
+          description: Filter by booking status (confirmed, completed, cancelled)
+        - in: query
+          name: start_date
+          schema:
+            type: string
+          description: Filter bookings from date (YYYY-MM-DD)
+        - in: query
+          name: end_date
+          schema:
+            type: string
+          description: Filter bookings until date (YYYY-MM-DD)
+        - in: query
+          name: stylist_ids
+          schema:
+            type: array
+            items:
+              type: string
+          description: Filter by stylist IDs
+        - in: query
+          name: service_ids
+          schema:
+            type: array
+            items:
+              type: string
+          description: Filter by service IDs
+        - in: query
+          name: page
+          schema:
+            type: integer
+            example: 1
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            example: 10
+      responses:
+        "200":
+          description: Bookings fetched successfully
+        "400":
+          description: Invalid query parameters
+        "500":
+          description: Server error
+
+  /api/v1/appointment/{id}:
+    get:
+      summary: Get booking by ID
+      description: Fetches full booking details including client, stylist, services, and transaction info.
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Booking ID
+      responses:
+        "200":
+          description: Booking details retrieved
+        "404":
+          description: Booking not found
+        "500":
+          description: Server error
+
+    patch:
+      summary: Update booking details
+      description: Updates booking status, note, or time for store-created bookings.
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Booking ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                booking_status:
+                  type: string
+                  example: "completed"
+                time_slot:
+                  type: string
+                  example: "11:00"
+                booking_note:
+                  type: string
+                  example: "Customer rescheduled due to delay"
+      responses:
+        "200":
+          description: Booking updated successfully
+        "400":
+          description: Invalid data or stylist unavailable
+        "404":
+          description: Booking not found
+        "500":
+          description: Server error
+
+  /api/v1/appointment/bulk/status:
+    patch:
+      summary: Update booking status in bulk
+      description: Bulk updates status for multiple store-created bookings.
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingIds:
+                  type: array
+                  items:
+                    type: string
+                  example: ["64a8f82a3d1f89001a3c12b5", "64a8f82a3d1f89001a3c12b9"]
+                status:
+                  type: string
+                  example: "cancelled"
+                reason:
+                  type: string
+                  example: "Client did not show up"
+      responses:
+        "200":
+          description: Bookings updated successfully
+        "400":
+          description: Invalid or missing booking IDs
+        "404":
+          description: Bookings not found
+        "500":
+          description: Server error
+
+  /api/v1/appointment/{id}/refund:
+    post:
+      summary: Refund and cancel a booking
+      description: Cancels a booking, processes refund, updates booked services, and logs transaction.
+      tags: [Appointments - Refund]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Booking ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - confirm_amount
+              properties:
+                confirm_amount:
+                  type: number
+                  example: 1200
+                remarks:
+                  type: string
+                  example: "Client cancelled appointment, refund issued"
+      responses:
+        "200":
+          description: Booking refunded and cancelled successfully
+        "400":
+          description: Invalid or missing confirm_amount / already cancelled
+        "404":
+          description: Booking not found
+        "500":
+          description: Internal server error
+
+    get:
+      summary: Get refund summary for a booking
+      description: Returns detailed refund summary including services, stylist, and refund status.
+      tags: [Appointments - Refund]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Booking ID
+      responses:
+        "200":
+          description: Refund summary fetched successfully
+        "404":
+          description: Booking not found
+        "500":
+          description: Internal server error

@@ -1,0 +1,373 @@
+tags:
+  - name: Order
+    description: Order Module.
+
+paths:
+  /api/v1/ecom/orders:
+    post:
+      summary: Create a shop order
+      description: Allows a merchant to create a new order for an existing or new customer. Handles customer creation, shipping address setup, order item creation, stock reduction, and transaction recording.
+      tags: [Order]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerType
+                - products
+                - payment
+              properties:
+                customerType:
+                  type: string
+                  enum: [existing, new]
+                  description: Type of customer placing the order.
+                  example: new
+                customerId:
+                  type: string
+                  description: Required if customerType is 'existing'. The MongoDB ID of the user.
+                  example: "60c728b792e3a10015b6d5f7"
+                customerDetails:
+                  type: object
+                  description: Required if customerType is 'new'. Contains customer and shipping address details.
+                  properties:
+                    name:
+                      type: string
+                      example: "Alice Smith"
+                    email:
+                      type: string
+                      format: email
+                      example: "alice@example.com"
+                    phone:
+                      type: string
+                      example: "+919988776655"
+                    addressLine1:
+                      type: string
+                      example: "123 Main St"
+                    addressLine2:
+                      type: string
+                      example: "Apt 4B"
+                    city:
+                      type: string
+                      example: "Vadodara"
+                    state:
+                      type: string
+                      example: "Gujarat"
+                    country:
+                      type: string
+                      example: "India"
+                    pin:
+                      type: string
+                      example: "390001"
+                products:
+                  type: array
+                  description: List of products in the order.
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - productId
+                      - quantity
+                    properties:
+                      productId:
+                        type: string
+                        example: "60c728b792e3a10015b6d5f8"
+                      quantity:
+                        type: integer
+                        example: 2
+                payment:
+                  type: object
+                  required:
+                    - totalAmount
+                    - paymentMethod
+                    - paymentStatus
+                  properties:
+                    totalAmount:
+                      type: number
+                      format: float
+                      example: 1500.50
+                    paymentMethod:
+                      type: string
+                      example: "Credit Card"
+                    paymentStatus:
+                      type: string
+                      enum: [Pending, Paid, Failed]
+                      example: "Paid"
+                orderStatus:
+                  type: string
+                  example: "pending"
+                  default: "pending"
+      responses:
+        "201":
+          description: Order placed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Order placed successfully"
+                  data:
+                    type: object
+                    properties:
+                      order_id:
+                        type: string
+                      orderNumber:
+                        type: string
+                      customer:
+                        type: object
+                      shippingAddress:
+                        type: object
+                      payment:
+                        type: object
+                      status:
+                        type: string
+                      credentials:
+                        type: object
+                        description: Only returned if customerType was 'new'.
+                        properties:
+                          email:
+                            type: string
+                          password:
+                            type: string
+        "400":
+          description: Bad Request (e.g., No products, Invalid customerType)
+        "500":
+          description: Server Error (e.g., Product not found, Transaction failure)
+
+    get:
+      summary: Get orders for grid view
+      description: Retrieves a list of orders with pagination and filtering options for the merchant's view.
+      tags: [Order]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [created_at, total_amount, order_status, payment_status]
+            default: created_at
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - in: query
+          name: orderStatus
+          schema:
+            type: string
+            description: Comma-separated order statuses (e.g., pending,processing).
+        - in: query
+          name: paymentStatus
+          schema:
+            type: string
+            description: Comma-separated payment statuses (e.g., paid,pending).
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date-time
+            description: Start date for order filtering.
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date-time
+            description: End date for order filtering.
+        - in: query
+          name: amountMin
+          schema:
+            type: number
+            description: Minimum total amount.
+        - in: query
+          name: amountMax
+          schema:
+            type: number
+            description: Maximum total amount.
+      responses:
+        "200":
+          description: List of orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        order_id:
+                          type: string
+                          example: "ORD-1678886400000"
+                        date:
+                          type: string
+                          format: date-time
+                        day:
+                          type: string
+                        customerName:
+                          type: string
+                        totalItems:
+                          type: integer
+                        amount:
+                          type: number
+                        paymentStatus:
+                          type: string
+                        orderStatus:
+                          type: string
+                        pickupType:
+                          type: string
+                        flagged:
+                          type: boolean
+                  pagination:
+                    type: object
+        "500":
+          description: Internal server error
+
+    patch:
+      summary: Update order status (Bulk)
+      description: Updates the 'order_status' for one or more orders by their order number.
+      tags: [Order]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderIds
+                - status
+              properties:
+                orderIds:
+                  type: array
+                  description: Array of order numbers to update. (Note: Controller uses 'order_number' from DB, but request should use the user-facing ID like ORD-1023)
+                  items:
+                    type: string
+                    example: "ORD-1678886400000"
+                status:
+                  type: string
+                  description: The new order status.
+                  example: "shipped"
+      responses:
+        "200":
+          description: Order status updated successfully
+        "400":
+          description: Bad Request (Missing orderIds or status)
+        "404":
+          description: No orders found with given IDs
+        "500":
+          description: Internal server error
+
+  /api/v1/ecom/orders/{id}:
+    get:
+      summary: Get order details by ID
+      description: Retrieves detailed information for a single order, including items, transaction, and shipping address.
+      tags: [Order]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: The MongoDB ID of the order.
+            example: "60c728b792e3a10015b6d5f7"
+      responses:
+        "200":
+          description: Order details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      order_id:
+                        type: string
+                      transactionId:
+                        type: string
+                      date:
+                        type: string
+                        format: date-time
+                      paymentMethod:
+                        type: string
+                      status:
+                        type: string
+                      totalAmount:
+                        type: number
+                      products:
+                        type: array
+                      shippingAddress:
+                        type: object
+                      invoice:
+                        type: object
+        "404":
+          description: Order not found
+        "500":
+          description: Internal server error
+
+  /api/v1/ecom/orders/flag:
+    patch:
+      summary: Flag an order (Bulk)
+      description: Marks one or more orders as 'flagged' with an optional reason, typically for review or security purposes.
+      tags: [Order]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderIds
+              properties:
+                orderIds:
+                  type: array
+                  description: Array of order numbers to flag.
+                  items:
+                    type: string
+                    example: "ORD-1678886400000"
+                reason:
+                  type: string
+                  description: Reason for flagging the order.
+                  example: "Suspicious activity detected"
+      responses:
+        "200":
+          description: Order(s) flagged successfully
+        "400":
+          description: Bad Request (Missing orderIds)
+        "404":
+          description: No orders found with given IDs
+        "500":
+          description: Internal server error

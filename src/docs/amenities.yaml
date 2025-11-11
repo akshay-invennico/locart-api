@@ -1,0 +1,269 @@
+tags:
+  - name: Amenities
+    description: Amenities Module.
+
+paths:
+  /api/v1/amenities:
+    post:
+      summary: Create a new amenity
+      description: Create a new amenity record (accessible by merchants only).
+      tags: [Amenities]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - description
+                - status
+              properties:
+                name:
+                  type: string
+                  example: "Swimming Pool"
+                description:
+                  type: string
+                  example: "Outdoor pool accessible to all guests"
+                status:
+                  type: string
+                  enum: [active, inactive]
+                  example: "active"
+      responses:
+        "201":
+          description: Amenity created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Amenity created successfully"
+                  data:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "60c72b2f90d19f0015b67288"
+                      name:
+                        type: string
+                        example: "Swimming Pool"
+                      description:
+                        type: string
+                        example: "Outdoor pool accessible to all guests"
+                      status:
+                        type: string
+                        example: "active"
+                      deleted_at:
+                        type: string
+                        nullable: true
+                        example: null
+        "500":
+          description: Internal server error
+
+    get:
+      summary: Get all amenities
+      description: Retrieve all active (non-deleted) amenities.
+      tags: [Amenities]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of amenities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                          example: "60c72b2f90d19f0015b67288"
+                        name:
+                          type: string
+                          example: "Free Wi-Fi"
+                        description:
+                          type: string
+                          example: "High-speed internet available in all rooms"
+                        status:
+                          type: string
+                          example: "active"
+                        deleted_at:
+                          type: string
+                          nullable: true
+                          example: null
+        "500":
+          description: Internal server error
+
+    patch:
+      summary: Update an existing amenity
+      description: Update amenity details by providing the ID as a query parameter.
+      tags: [Amenities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Amenity ID to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - description
+                - status
+              properties:
+                name:
+                  type: string
+                  example: "Updated Pool"
+                description:
+                  type: string
+                  example: "Renovated pool with new facilities"
+                status:
+                  type: string
+                  enum: [active, inactive]
+                  example: "active"
+      responses:
+        "200":
+          description: Amenity updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Amenity updated successfully"
+                  data:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "60c72b2f90d19f0015b67288"
+                      name:
+                        type: string
+                        example: "Updated Pool"
+                      description:
+                        type: string
+                        example: "Renovated pool with new facilities"
+                      status:
+                        type: string
+                        example: "active"
+                      deleted_at:
+                        type: string
+                        nullable: true
+                        example: null
+        "404":
+          description: Amenity not found
+        "500":
+          description: Internal server error
+
+    delete:
+      summary: Soft delete an amenity
+      description: Mark an amenity as deleted by setting `deleted_at`. Requires ID as a query parameter.
+      tags: [Amenities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Amenity ID to delete
+      responses:
+        "200":
+          description: Amenity deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Amenity deleted successfully"
+        "404":
+          description: Amenity not found
+        "500":
+          description: Internal server error
+
+  /api/v1/amenities/{id}:
+    get:
+      summary: Get amenity by ID
+      description: Retrieve details of a specific amenity using a path parameter.
+      tags: [Amenities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Amenity ID
+      responses:
+        "200":
+          description: Amenity retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "60c72b2f90d19f0015b67288"
+                      name:
+                        type: string
+                        example: "Free Wi-Fi"
+                      description:
+                        type: string
+                        example: "High-speed internet available in all rooms"
+                      status:
+                        type: string
+                        example: "active"
+                      deleted_at:
+                        type: string
+                        nullable: true
+                        example: null
+        "404":
+          description: Amenity not found
+        "500":
+          description: Internal server error
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

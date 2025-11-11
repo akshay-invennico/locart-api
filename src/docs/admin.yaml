@@ -1,0 +1,203 @@
+tags:
+  - name: Admin
+    description: Admin registration, login, and token management APIs.
+
+paths:
+  /api/v1/admin/register:
+    post:
+      tags:
+        - Admin
+      summary: Register or login admin
+      description: >
+        If no admin exists, this endpoint will **register** a new admin.  
+        Otherwise, it acts as an **admin login** endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email_address
+                - password
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: admin@example.com
+                password:
+                  type: string
+                  format: password
+                  example: Admin@123
+      responses:
+        '201':
+          description: Admin registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthResponse'
+        '200':
+          description: Admin login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthResponse'
+        '401':
+          description: Invalid credentials
+        '500':
+          description: Internal server error
+
+  /api/v1/admin/refresh:
+    post:
+      tags:
+        - Admin
+      summary: Refresh access token
+      description: >
+        Generates a new access token using a valid refresh token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: New access token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          description: Refresh token required
+        '403':
+          description: Invalid refresh token
+        '500':
+          description: Internal server error
+
+  /api/v1/admin/logout:
+    post:
+      tags:
+        - Admin
+      summary: Logout admin
+      description: >
+        Invalidates the provided refresh token and logs out the admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Logged out successfully. Tokens invalidated.
+        '400':
+          description: Refresh token required
+        '500':
+          description: Internal server error
+
+  /api/v1/admin/me:
+    get:
+      tags:
+        - Admin
+      summary: Get admin information
+      description: >
+        Returns the admin role and its associated users.
+      responses:
+        '200':
+          description: Admin information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  admin:
+                    type: object
+                    properties:
+                      role_name:
+                        type: string
+                        example: admin
+                      users:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              example: 64a01b12f5a93c1e6f25a000
+                            name:
+                              type: string
+                              example: Administrator
+                            email_address:
+                              type: string
+                              example: admin@example.com
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    AdminAuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Login successful
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              example: 64a01b12f5a93c1e6f25a000
+            name:
+              type: string
+              example: Administrator
+            email:
+              type: string
+              example: admin@example.com
+            role:
+              type: string
+              example: 64a01b12f5a93c1e6f25a111
+        tokens:
+          type: object
+          properties:
+            accessToken:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            refreshToken:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        redirect:
+          type: string
+          example: /dashboard
