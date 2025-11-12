@@ -10,15 +10,12 @@ const upload = require("../../../middlewares/upload.middleware");
 const authMiddleware = require("../../../middlewares/auth.middleware");
 const router = express.Router();
 
-router
-  .route("/")
-  .post(authMiddleware(["merchant"]), upload.none(), createService)
-  .get(getServices);
+router.get("/:id", getServiceById);
+router.patch("/:id", authMiddleware(["merchant"]), upload.none(), updateService);
+router.delete("/:id", authMiddleware(["merchant"]), deleteService);
 
-router
-  .route("/:id")
-  .get(authMiddleware(["merchant"]), getServiceById)
-  .patch(authMiddleware(["merchant"]), upload.none(), updateService)
-  .delete(authMiddleware(["merchant"]), deleteService);
+router.get("/", getServices);
+router.post("/", authMiddleware(["merchant"]), upload.none(), createService);
+
 
 module.exports = router;

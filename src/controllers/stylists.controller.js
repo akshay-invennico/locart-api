@@ -377,6 +377,59 @@ const getAllStylists = async (req, res) => {
   }
 };
 
+const getAvailableStylists = async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date is required",
+      });
+    }
+
+    const dayName = moment(date, "YYYY-MM-DD").format("dddd");
+
+    const stylists = await Stylist.find({
+      status: "active",
+      workingDays: { $in: [dayName] },
+      deleted_at: null,
+    })
+      .populate("user_id", "name profile_picture")
+      .populate("services", "serviceName duration")
+      .lean();
+
+    const formatted = stylists.map((stylist) => ({
+      _id: stylist._id,
+      name: stylist?.user_id?.name,
+      avatar: stylist?.user_id?.profile_picture || "null",
+      experience_years: stylist.experience_years,
+      ratings: stylist.ratings?.toString() || 0,
+      total_bookings: stylist.total_bookings,
+      workingHours: stylist.workingHours,
+      workingDays: stylist.workingDays,
+      services: stylist.services,
+      is_featured: stylist.is_featured,
+      specialities: stylist.specialties || "none",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      date,
+      dayName,
+      count: formatted.length,
+      stylists: formatted,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
 // @desc Get stylist by ID
 // @route GET /api/v1/store/stylists/:id
 // @access Merchant
@@ -599,18 +652,18 @@ const getTimeSlots = async (req, res) => {
 
       const startTime = moment(
         `${day} ${stylist.workingHours.start}`,
-        "YYYY-MM-DD HH:mm"
+        "YYYY-MM-DD hh:mm A"
       );
       const endTime = moment(
         `${day} ${stylist.workingHours.end}`,
-        "YYYY-MM-DD HH:mm"
+        "YYYY-MM-DD hh:mm A"
       );
 
       let slots = [];
       let current = startTime.clone();
       while (current.isBefore(endTime)) {
         slots.push(current.format("HH:mm"));
-        current.add(duration, "minutes"); // now duration is numeric
+        current.add(duration, "minutes");
       }
 
       const bookings = await Booking.find({
@@ -671,4 +724,5 @@ module.exports = {
   getStylistById,
   deleteStylist,
   getTimeSlots,
+  getAvailableStylists
 };

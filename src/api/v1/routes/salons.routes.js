@@ -24,6 +24,7 @@ const {
   getStylistById,
   deleteStylist,
   getTimeSlots,
+  getAvailableStylists
 } = require("../../../controllers/stylists.controller");
 
 // * this routes are places in specific position as java script read the code line by line as it is synchronous
@@ -55,7 +56,9 @@ router
   .get(authMiddleware(["merchant"]), getAllStylists)
   .post(authMiddleware(["merchant"]), upload.none(), createStylist)
   .patch(authMiddleware(["merchant"]), upload.none(), updateStylist);
-// ! This stylish extension route is because we are already using all http methods on one routes
+
+router.route("/stylists/available").get(authMiddleware([]), getAvailableStylists);
+
 router
   .route("/stylists/:id")
   .get(authMiddleware(["merchant"]), getStylistById)

@@ -154,34 +154,34 @@ const getServices = async (req, res) => {
 // @access  Private (merchant)
 const getServiceById = async (req, res) => {
   try {
-    const merchant = await Merchant.findOne({ user_id: req.user.id });
-    if (!merchant)
-      return res
-        .status(404)
-        .json({ success: false, message: "Merchant not found" });
+    const { id } = req.params;
 
-    const salons = await Salon.find({
-      merchant_id: merchant._id,
-      deleted_at: null,
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Service ID is required",
+      });
+    }
+
+    const data = await Service.findById(id);
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data,
     });
-    const salonIds = salons.map((s) => s._id);
-
-    const salonService = await SalonService.findOne({
-      salon_id: { $in: salonIds },
-      service_id: req.params.id,
-      deleted_at: null,
-    }).populate("service_id");
-
-    if (!salonService || !salonService.service_id)
-      return res
-        .status(404)
-        .json({ success: false, message: "Service not found" });
-
-    res.status(200).json({ success: true, data: salonService.service_id });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Server Error", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
   }
 };
 
