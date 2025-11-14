@@ -101,62 +101,22 @@ const createSalon = async (req, res) => {
 // @access  Private (merchant role)
 const getMySalon = async (req, res) => {
   try {
-    const merchant = await Merchant.findOne({ user_id: req.user.id });
-    if (!merchant) {
-      return res.status(404).json({
+    const { id: salonId } = req.params;
+
+    if (!salonId) {
+      return res.status(400).json({
         success: false,
-        message: "Merchant profile not found for this user",
+        message: "Salon ID is required",
       });
     }
 
-    const salon = await Salon.findOne({ merchant_id: merchant._id });
+    const salon = await Salon.findById(salonId);
     if (!salon) {
       return res.status(404).json({
         success: false,
         message: "Salon not found",
       });
     }
-    res.status(200).json({
-      success: true,
-      message: "Salon retrieved successfully",
-      data: salon,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
-  }
-};
-
-// @desc    Create a new salon (merchant only)
-// @route   GET /api/salons/:id
-// @access  Private (merchant role)
-const getMySingleSalon = async (req, res) => {
-  try {
-    // ✅ Find merchant linked to the logged-in user
-    const merchant = await Merchant.findOne({ user_id: req.user.id });
-    if (!merchant) {
-      return res.status(404).json({
-        success: false,
-        message: "Merchant profile not found for this user",
-      });
-    }
-
-    const salon = await Salon.findOne({
-      _id: req.params.id,
-      merchant_id: merchant._id,
-      deleted_at: null,
-    });
-
-    if (!salon) {
-      return res.status(404).json({
-        success: false,
-        message: "Salon not found or not authorized",
-      });
-    }
-
     res.status(200).json({
       success: true,
       message: "Salon retrieved successfully",
@@ -418,14 +378,16 @@ const addAvailabilitySalons = async (req, res) => {
 // @access  Private (merchant role)
 const getMyAvailabilitySalons = async (req, res) => {
   try {
-    const merchant = await Merchant.findOne({ user_id: req.user.id });
-    if (!merchant) {
-      return res.status(404).json({
+    const { id: salonId } = req.params;
+
+    if (!salonId) {
+      return res.status(400).json({
         success: false,
-        message: "Merchant profile not found for this user",
+        message: "Salon ID is required",
       });
     }
-    const salon = await Salon.findOne({ merchant_id: merchant._id });
+
+    const salon = await Salon.findById(salonId);
     if (!salon) {
       return res.status(404).json({
         success: false,
@@ -646,29 +608,18 @@ const editHoliday = async (req, res) => {
 // @access  Private (merchant role)
 const getSalonHolidays = async (req, res) => {
   try {
-    const merchant = await Merchant.findOne({ user_id: req.user.id });
-    if (!merchant) {
-      return res.status(404).json({
-        success: false,
-        message: "Merchant profile not found for this user",
-      });
-    }
-
-    // Get all salon IDs for this merchant
-    const salons = await Salon.find({ merchant_id: merchant._id });
-    const salonIds = salons.map((s) => s._id);
-
-    if (!salonIds.length) {
-      return res.status(404).json({
-        success: false,
-        message: "No salons found for this merchant",
-      });
-    }
-
+    const { id: salonId } = req.params;
     const { fromDate, toDate } = req.query;
 
-    // Build query
-    const query = { salon_id: { $in: salonIds }, deleted_at: null };
+    if (!salonId) {
+      return res.status(400).json({
+        success: false,
+        message: "Salon ID is required",
+      });
+    }
+
+    const query = { salon_id: salonId, deleted_at: null };
+
     if (fromDate || toDate) {
       query.date = {};
       if (fromDate) query.date.$gte = new Date(fromDate);
@@ -801,7 +752,6 @@ const addAmenitiesToSalon = async (req, res) => {
 module.exports = {
   createSalon,
   getMySalon,
-  getMySingleSalon,
   updateSalon,
   deleteSalon,
   addAvailabilitySalons,

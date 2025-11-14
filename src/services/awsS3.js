@@ -24,11 +24,20 @@ const bucketName = process.env.AWS_BUCKET_NAME || "locart-staging";
  * @param {string} mimetype - File mimetype
  * @returns {Promise<string>} - S3 file URL
  */
-const uploadToS3 = async (fileBuffer, fileName, folder, mimetype) => {
+const uploadToS3 = async (file, folder) => {
   try {
-    // Generate unique file name to avoid conflicts
+    const fileBuffer = file.buffer || file;
+    const originalFileName = file.originalname || "file";
+    const mimetype = file.mimetype || "application/octet-stream";
+
+    const cleanedFileName = originalFileName
+      .trim()
+      .replace(/\s+/g, "-")        
+      .replace(/[()]/g, "")        
+      .replace(/[^a-zA-Z0-9._-]/g, "");
+
     const timestamp = Date.now();
-    const uniqueFileName = `${folder}/${timestamp}-${fileName}`;
+    const uniqueFileName = `${folder}/${timestamp}-${cleanedFileName}`;
 
     const uploadParams = {
       Bucket: bucketName,
@@ -40,8 +49,16 @@ const uploadToS3 = async (fileBuffer, fileName, folder, mimetype) => {
     const command = new PutObjectCommand(uploadParams);
     await s3Client.send(command);
 
-    // Return the public URL of the uploaded file
-    return `https://${bucketName}.s3.${process.env.AWS_BUCKET_REGION}.amazonaws.com/${uniqueFileName}`;
+    // Generate a properly encoded URL
+    const encodedKey = encodeURIComponent(uniqueFileName);
+    const url = `https://${bucketName}.s3.${process.env.AWS_BUCKET_REGION}.amazonaws.com/${encodedKey}`;
+
+    return {
+      url,
+      key: uniqueFileName,
+      Location: url,
+      Key: uniqueFileName,
+    };
   } catch (error) {
     throw new Error(`Failed to upload file: ${error.message}`);
   }
@@ -73,14 +90,15 @@ const uploadMultipleToS3 = async (files, folder) => {
  */
 const deleteFromS3 = async (fileUrl) => {
   try {
-    // Extract key from URL
-    const key = fileUrl.split(
-      `https://${bucketName}.s3.${process.env.AWS_BUCKET_REGION}.amazonaws.com/`
-    )[1];
-
-    if (!key) {
-      throw new Error("Invalid file URL");
+    if (!fileUrl) {
+      throw new Error("File URL is required");
     }
+    const baseUrl = `https://${bucketName}.s3.${process.env.AWS_BUCKET_REGION}.amazonaws.com/`;
+
+    if (!fileUrl.startsWith(baseUrl)) {
+      throw new Error("Invalid file URL format");
+    }
+    const key = decodeURIComponent(fileUrl.replace(baseUrl, ""));
 
     const deleteParams = {
       Bucket: bucketName,
@@ -90,7 +108,11 @@ const deleteFromS3 = async (fileUrl) => {
     const command = new DeleteObjectCommand(deleteParams);
     await s3Client.send(command);
 
-    return true;
+    return {
+      success: true,
+      message: "File deleted successfully from S3",
+      key,
+    };
   } catch (error) {
     console.error("Error deleting from S3:", error);
     throw new Error(`Failed to delete file: ${error.message}`);

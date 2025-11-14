@@ -13,7 +13,7 @@ const { generateOtp } = require("../utils/otp");
 // 🏪 Register Merchant
 const registerMerchant = async (req, res) => {
   try {
-    const { merchantName, businessName, email, phone, password } = req.body;
+    const { merchantName, businessName, email, phone, dialing_code, password } = req.body;
 
     let merchantRole = await Role.findOne({ role_name: "merchant" }).populate(
       "users"
@@ -29,6 +29,7 @@ const registerMerchant = async (req, res) => {
       name: merchantName,
       email_address: email,
       password,
+      dialing_code: dialing_code || null,
       phone_number: phone || null,
       isVerified: true,
     });
@@ -337,6 +338,13 @@ const loginUser = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "User is not verified",
+      });
+    }
+
+    if(user.status === "inactive") {
+      return res.status(401).json({
+        success: false,
+        message: "Account has been deleted",
       });
     }
 
