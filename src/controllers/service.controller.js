@@ -163,18 +163,44 @@ const getServiceById = async (req, res) => {
       });
     }
 
-    const data = await Service.findById(id);
-
-    if (!data) {
+    const service = await Service.findById(id);
+    if (!service) {
       return res.status(404).json({
         success: false,
         message: "Service not found",
       });
     }
 
+    const salonService = await SalonService.findOne({
+      service_id: id,
+      deleted_at: null,
+    }).populate("salon_id");
+
+    if (!salonService || !salonService.salon_id) {
+      return res.status(404).json({
+        success: false,
+        message: "Salon not found for this service",
+      });
+    }
+
+    const salon = salonService.salon_id;
+    const formattedLocation = `${salon.streetAddress}, ${salon.city}, ${salon.state} ${salon.zipCode}`;
+
     return res.status(200).json({
       success: true,
-      data,
+      data: {
+        service,
+        salon: {
+          id: salon._id,
+          name: salon.name,
+          logo: salon.logo,
+          coverImage: salon.coverImage,
+          location: formattedLocation,
+          mapLink: salon.mapLink || null,
+          phone: salon.phone || null,
+          email: salon.email || null,
+        },
+      },
     });
   } catch (error) {
     return res.status(500).json({

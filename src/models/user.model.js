@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, minlength: 6, select: false },
 
     phone_number: { type: String, maxlength: 100 },
+    dialing_code: { type: String, maxlength: 10 },
 
     date_of_birth: { type: Date },
     gender: { type: String, maxlength: 25, enum: ["male", "female", "other"] },

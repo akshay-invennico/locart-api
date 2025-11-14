@@ -439,55 +439,36 @@ const getStylistById = async (req, res) => {
     if (!stylistId) {
       return res.status(400).json({
         success: false,
-        message: "stylistId query parameter is required",
+        message: "stylistId parameter is required",
       });
     }
 
-    // Check if requester has merchant role
-    const merchantUserId = req.user.id;
-    const merchantRole = await Role.findOne({
-      role_name: "merchant",
-      users: merchantUserId,
-    });
-
-    if (!merchantRole) {
-      return res.status(403).json({
-        success: false,
-        message: "Only merchants can view stylist details",
+    const stylist = await Stylist.findById(stylistId)
+      .populate({
+        path: "user_id",
+        select: "name email_address phone_number profile_photo",
+      })
+      .populate({
+        path: "saloon_id",
+        select: "name streetAddress city state zipCode mapLink",
       });
-    }
-
-    // Find the merchant profile
-    const merchant = await Merchant.findOne({ user_id: merchantUserId });
-    if (!merchant) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Merchant not found" });
-    }
-
-    // Find the salon linked to this merchant
-    const salon = await Salon.findOne({ merchant_id: merchant._id });
-    if (!salon) {
-      return res.status(404).json({
-        success: false,
-        message: "Salon not found for this merchant",
-      });
-    }
-
-    // Find stylist by ID and make sure they belong to this salon
-    const stylist = await Stylist.findOne({
-      _id: stylistId.toString(),
-      saloon_id: salon._id,
-    }).populate({
-      path: "user_id",
-      select: "name email_address phone_number profile_photo",
-    });
 
     if (!stylist) {
       return res.status(404).json({
         success: false,
-        message: "Stylist not found or does not belong to this salon",
+        message: "Stylist not found",
       });
+    }
+
+    let salonInfo = null;
+    if (stylist.saloon_id) {
+      const salon = stylist.saloon_id;
+      salonInfo = {
+        id: salon._id,
+        name: salon.name,
+        location: `${salon.streetAddress}, ${salon.city}, ${salon.state} ${salon.zipCode}`,
+        mapLink: salon.mapLink || null,
+      };
     }
 
     // Return full stylist details
@@ -495,10 +476,11 @@ const getStylistById = async (req, res) => {
       success: true,
       stylist: {
         id: stylist._id,
-        fullName: stylist.user_id.name,
-        email: stylist.user_id.email_address,
-        phone: stylist.user_id.phone_number,
-        profilePhoto: stylist.user_id.profile_photo,
+        fullName: stylist.user_id?.name || null,
+        email: stylist.user_id?.email_address || null,
+        phone: stylist.user_id?.phone_number || null,
+        profilePhoto: stylist.user_id?.profile_photo || null,
+        salon: salonInfo,
         services: stylist.services,
         workingDays: stylist.workingDays,
         workingHours: stylist.workingHours,
