@@ -598,7 +598,7 @@ const updateBooking = async (req, res) => {
 
   try {
     const bookingId = req.params.id;
-    const { time_slot, booking_status, booking_note, stylist_duration } = req.body;
+    const { time_slot, booking_status, booking_note, stylist_duration, payment_status } = req.body;
 
     // 1️⃣ Fetch booking (from middleware or DB)
     const booking =
@@ -650,6 +650,7 @@ const updateBooking = async (req, res) => {
     if (booking_status) booking.booking_status = booking_status.toLowerCase();
     if (booking_note) booking.notes = booking_note;
     if (stylist_duration) booking.stylist_duration = Number(stylist_duration);
+    if (payment_status) booking.payment_status = payment_status.toLowerCase();
 
     await booking.save({ session });
 
@@ -664,6 +665,7 @@ const updateBooking = async (req, res) => {
         time_slot: booking.service_start_time,
         booking_status: booking.booking_status,
         booking_note: booking.notes,
+        payment_status: booking.payment_status,
       },
     });
   } catch (error) {
