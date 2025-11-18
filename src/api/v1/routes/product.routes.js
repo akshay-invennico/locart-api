@@ -7,22 +7,21 @@ const {
   updateProduct,
   deleteProduct,
 } = require("../../../controllers/product.controller");
-const upload = require("../../../middlewares/upload.middleware");
 const { uploadMultiple } = require("../../../middlewares/uploadMiddleware");
 const router = express.Router();
 
 router
   .route("/product")
   .post(
-    authMiddleware(["merchant"]),
+    authMiddleware(["merchant", "customer", "loctitian"]),
     uploadMultiple("products", 10),
     createProduct
   )
-  .get(authMiddleware(["merchant"]), getProducts);
+  .get(authMiddleware(["merchant", "customer", "loctitian"]), getProducts);
 
 router
   .route("/product/:id")
-  .get(authMiddleware(["merchant"]), getProductById)
+  .get(authMiddleware(["merchant", "customer", "loctitian"]), getProductById)
   .patch(
     authMiddleware(["merchant"]),
     uploadMultiple("products", 10),

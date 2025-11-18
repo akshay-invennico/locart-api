@@ -24,12 +24,17 @@ const appointmentRoute = require("./api/v1/routes/appointment.routes");
 const dashboardRoute = require("./api/v1/routes/dashboard.routes");
 const clientRoute = require("./api/v1/routes/client.routes");
 const userRoute = require("./api/v1/routes/user.routes")
+const addressRoute = require("./api/v1/routes/address.routes")
 
 // 🏃 App initialization
 const app = express();
 
 // Security middlewares
 app.use(helmet());
+
+// webhook 
+app.use("/api/v1/payments", require("./api/v1/routes/payment.routes"));
+
 app.use(express.json());
 app.use("/api", rateLimiter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -49,7 +54,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/store", salonsRoutes);
 app.use("/api/v1/services", serviceRoutes);
 app.use("/api/v1/amenities", amenitiesRoutes);
-app.use("/api/v1/ecom", productCategoryRoutes, productRoutes, orderRoutes);
+app.use("/api/v1/ecom", productCategoryRoutes, productRoutes, orderRoutes, addressRoute);
 app.use("/api/v1/appointment", appointmentRoute);
 app.use("/api/v1/dashboard", dashboardRoute);
 app.use("/api/v1/client", clientRoute);

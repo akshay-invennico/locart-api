@@ -73,13 +73,13 @@ const uploadToS3 = async (file, folder) => {
 const uploadMultipleToS3 = async (files, folder) => {
   try {
     const uploadPromises = files.map((file) =>
-      uploadToS3(file.buffer, file.originalname, folder, file.mimetype)
+      uploadToS3(file, folder)
     );
 
-    const uploadedUrls = await Promise.all(uploadPromises);
-    return uploadedUrls;
+    const results = await Promise.all(uploadPromises);
+    return results;
   } catch (error) {
-    throw new Error(`Failed to upload files: ${error.message}`);
+    throw new Error(`Failed to upload multiple files: ${error.message}`);
   }
 };
 

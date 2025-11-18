@@ -875,7 +875,7 @@ const refundBooking = async (req, res) => {
       amount: confirm_amount,
       net_amount: confirm_amount,
       currency: "INR",
-      payment_status: "manual",
+      payment_status: "paid",
       transaction_status: "completed",
       processed_at: new Date(),
       remarks,
