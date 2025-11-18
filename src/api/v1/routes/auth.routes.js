@@ -9,6 +9,9 @@ const {
   registerUser,
   verifyOtp,
   resendOtp,
+  forgotPasswordMobile,
+  verifyOtpMobile,
+  resetPasswordMobile,
 } = require("../../../controllers/auth.controller");
 
 const {
@@ -37,5 +40,10 @@ router.get("/verify-reset-token/:token", verifyResetToken);
 router.post("/verify/otp", verifyOtp)
 router.post("/otp/resend", resendOtp)
 router.post("/reset-password", resetPassword);
+
+// reset password routes for mobile
+router.post("/forgot/password/mobile", forgotPasswordMobile);
+router.post("/verify/otp/mobile", verifyOtpMobile);
+router.post("/reset/password/mobile", resetPasswordMobile);
 
 module.exports = router;
