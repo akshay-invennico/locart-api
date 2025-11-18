@@ -1,12 +1,11 @@
 const mongoose = require("mongoose");
 
-const productCategorySchema = new mongoose.Schema(
+const categorySchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: true,
       maxlength: 100,
-      unique: true,
     },
     description: { type: String },
     image: { type: String },
@@ -14,7 +13,11 @@ const productCategorySchema = new mongoose.Schema(
       type: String,
       required: true,
       maxlength: 100,
-      unique: true,
+    },
+    type: {
+      type: String,
+      enum: ["product", "service"],
+      required: true,
     },
     order: { type: Number },
     status: {
@@ -30,8 +33,9 @@ const productCategorySchema = new mongoose.Schema(
     updatedAt: "updated_at",
   }
 );
-const ProductCategory = mongoose.model(
-  "ProductCategory",
-  productCategorySchema
-);
-module.exports = ProductCategory;
+
+categorySchema.index({ name: 1, type: 1 }, { unique: true });
+categorySchema.index({ slug: 1, type: 1 }, { unique: true });
+
+const Category = mongoose.model("Category", categorySchema);
+module.exports = Category;
