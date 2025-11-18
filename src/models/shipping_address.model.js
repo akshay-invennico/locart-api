@@ -10,16 +10,16 @@ const shippingAddressSchema = new mongoose.Schema(
 
     address_type: {
       type: String,
-      enum: ["shipping", "billing", "both"],
-      default: "shipping",
+      enum: ["home", "office", "other"],
+      default: "other",
     },
 
-    first_name: { type: String, required: true },
-    last_name: { type: String, required: true },
+    name: { type: String, required: true },
     company: { type: String },
 
     address_line_1: { type: String, required: true },
     address_line_2: { type: String },
+    landmark: { type: String },
 
     city: { type: String, required: true },
     state: { type: String, required: true },

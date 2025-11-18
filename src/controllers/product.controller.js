@@ -42,7 +42,9 @@ const createProduct = async (req, res) => {
     // Upload images to S3 if files are provided
     if (req.files && req.files.length > 0) {
       try {
-        images = await uploadMultipleToS3(req.files, "products");
+        const uploaded = await uploadMultipleToS3(req.files, "products");
+        images = uploaded.map((file) => file.Location || file.url);
+
       } catch (uploadError) {
         return res.status(500).json({
           success: false,
@@ -77,7 +79,6 @@ const createProduct = async (req, res) => {
     await product.save();
     const formattedUnitPrice = parseFloat(product.unit_price.toString());
 
-    // Response data
     const responseData = {
       _id: product._id,
       name: product.name,
@@ -107,14 +108,6 @@ const createProduct = async (req, res) => {
 //@access  Private (merchant role)
 const getProducts = async (req, res) => {
   try {
-    const merchant = await Merchant.findOne({ user_id: req.user.id });
-    if (!merchant) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Merchant not found" });
-    }
-
-    // 🔍 Extract filters from query
     const {
       search,
       category,
@@ -128,29 +121,32 @@ const getProducts = async (req, res) => {
       limit = 10,
     } = req.query;
 
-    // ✅ Ensure numeric pagination values
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
     const skip = (pageNum - 1) * limitNum;
 
-    // 📌 Build query
-    const query = { merchant_id: merchant._id, deleted_at: null };
+    const query = { deleted_at: null };
 
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
 
     if (category) {
-      query.category_id = category;
+      let categoriesArr = [];
+
+      if (Array.isArray(category)) {
+        categoriesArr = category;
+      } else if (typeof category === "string" && category.includes(",")) {
+        categoriesArr = category.split(",");
+      } else {
+        categoriesArr = [category];
+      }
+
+      query.category_id = { $in: categoriesArr };
     }
 
-    if (status) {
-      query.status = status;
-    }
-
-    if (type) {
-      query.type = type;
-    }
+    if (status) query.status = status;
+    if (type) query.type = type;
 
     if (priceMin || priceMax) {
       query.unit_price = {};
@@ -164,7 +160,6 @@ const getProducts = async (req, res) => {
       if (stockMax) query.stock_quantity.$lte = Number(stockMax);
     }
 
-    // 📌 Query products with pagination
     const products = await Product.find(query)
       .populate("category_id", "name")
       .skip(skip)
@@ -172,7 +167,6 @@ const getProducts = async (req, res) => {
 
     const total = await Product.countDocuments(query);
 
-    // 📌 Format response with selected fields only
     const formatted = products.map((p) => ({
       _id: p._id,
       productName: p.name,
@@ -193,9 +187,11 @@ const getProducts = async (req, res) => {
       data: formatted,
     });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ success: false, message: "Server Error", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
   }
 };
 

@@ -7,6 +7,7 @@ const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const ShippingAddress = require("../models/shipping_address.model");
 const ShippingZone = require("../models/shipping_zone.model");
+const stripe = require("../utils/stripe")
 
 const generateRandomPassword = () => {
   return crypto.randomBytes(6).toString("hex");
@@ -142,7 +143,7 @@ const createShopOrder = async (req, res) => {
       currency: "INR",
       payment_status: payment.paymentStatus.toLowerCase(),
       order_status: orderStatus || "pending",
-      shipping_address_id: shippingAddress._id,
+      address_id: shippingAddress._id,
     });
     await order.save({ session });
 
@@ -180,7 +181,7 @@ const createShopOrder = async (req, res) => {
     // 6️⃣ Save transaction
     let normalizedPaymentStatus = payment.paymentStatus.toLowerCase();
     if (normalizedPaymentStatus === "paid") {
-      normalizedPaymentStatus = "captured";
+      normalizedPaymentStatus = "paid";
     }
 
     const transaction = new Transaction({
@@ -192,9 +193,9 @@ const createShopOrder = async (req, res) => {
       net_amount: payment.totalAmount,
       currency: "INR",
       transaction_status:
-        normalizedPaymentStatus === "captured" ? "completed" : "pending",
+        normalizedPaymentStatus === "paid" ? "completed" : "pending",
       payment_status: normalizedPaymentStatus,
-      processed_at: normalizedPaymentStatus === "captured" ? new Date() : null,
+      processed_at: normalizedPaymentStatus === "paid" ? new Date() : null,
     });
     await transaction.save({ session });
 
@@ -334,7 +335,7 @@ const getAllOrders = async (req, res) => {
           orderStatus:
             order.order_status.charAt(0).toUpperCase() +
             order.order_status.slice(1),
-          pickupType: order.pickup_type || "delivery", 
+          pickupType: order.pickup_type || "delivery",
           flagged: order.flagged || false,
           flaggedReason: order.flaggedReason || null,
         };
@@ -395,8 +396,8 @@ const getOrderById = async (req, res) => {
     );
 
     // 4️⃣ Get shipping address
-    const shippingAddress = order.shipping_address_id
-      ? await ShippingAddress.findById(order.shipping_address_id).lean()
+    const shippingAddress = order.address_id
+      ? await ShippingAddress.findById(order.address_id).lean()
       : null;
 
     // 6️⃣ Prepare invoice
@@ -546,10 +547,160 @@ const flagOrder = async (req, res) => {
   }
 };
 
+const createOrder = async (req, res) => {
+  try {
+    const { items, address_id } = req.body;
+
+    const productIds = items.map(i => i.product_id);
+    const products = await Product.find({ _id: { $in: productIds } });
+
+    let subtotal = 0;
+    const finalItems = [];
+
+    items.forEach(i => {
+      const product = products.find(p => p._id.toString() === i.product_id);
+
+      if (!product) {
+        throw new Error(`Product not found: ${i.name}`);
+      }
+
+      const price = Number(product.unit_price);
+      const quantity = Number(i.quantity);
+
+      const lineSubtotal = price * quantity;
+
+      finalItems.push({
+        product_id: product._id,
+        name: product.name,
+        quantity,
+        price,
+        subtotal: lineSubtotal,
+        image: product.image,
+      });
+
+      subtotal += lineSubtotal;
+    });
+
+    const tax_percentage = Number(process.env.TAX_PERCENTAGE) || 0;
+    const shipping_amount = Number(process.env.SHIPPING_COST) || 0;
+
+    const tax_amount = (subtotal * tax_percentage) / 100;
+    const total_amount = subtotal + tax_amount + shipping_amount;
+
+    const order = await Order.create({
+      order_number: "ORD-" + Date.now(),
+      user_id: req.user.id,
+      items: finalItems,
+      subtotal,
+      tax_amount,
+      shipping_amount,
+      total_amount,
+      address_id,
+    });
+
+    const checkoutSession = await createCheckoutSession(order, req);
+
+    return res.status(201).json({
+      success: true,
+      message: "Order created, redirect to payment",
+      checkoutUrl: checkoutSession.url,
+      order_id: order._id,
+    });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const getOrderSummary = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.order_id)
+      .populate("items.product_id")
+      .populate("address_id");
+    
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const createCheckoutSession = async (order, req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],  
+
+      mode: "payment",
+
+      line_items: order.items.map(item => ({
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: item.name,
+            images: [item.image],
+          },
+          unit_amount: item.price * 100,
+        },
+        quantity: item.quantity,
+      })),
+
+      customer_email: req.user.email,
+
+      metadata: { orderId: order._id.toString() },
+
+      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/payment-cancelled`,
+    });
+
+    return {
+      success: true,
+      url: session.url,
+    };
+
+  } catch (err) {
+    throw new Error(err.message);
+  }
+};
+
+const verifyPayment = async (req, res) => {
+  try {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).json({ message: "session_id is required" });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    const orderId = session.metadata.orderId;
+
+    const order = await Order.findById(orderId);
+
+    return res.json({
+      success: true,
+      payment_status: order.payment_status,
+      order_status: order.order_status,
+      order_id: order._id
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+
 module.exports = {
   createShopOrder,
   getAllOrders,
   getOrderById,
   updateOrderStatus,
   flagOrder,
+  createOrder,
+  getOrderSummary,
+  createCheckoutSession,
+  verifyPayment
 };

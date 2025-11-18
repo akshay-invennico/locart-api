@@ -15,7 +15,7 @@ const { uploadSingle } = require("../../../middlewares/uploadMiddleware");
 router
   .route("/category")
   .post(
-    authMiddleware(["merchant"]),
+    authMiddleware(["merchant", "customer"]),
     uploadSingle("categories"),
     createProductCategory
   )

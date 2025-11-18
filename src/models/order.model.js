@@ -15,6 +15,21 @@ const orderSchema = new mongoose.Schema(
       enum: ["product", "service"],
       default: "product",
     },
+    items: [
+      {
+        product_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        name: { type: String, required: true },
+        quantity: { type: Number, required: true },
+        price: { type: Number, required: true },
+        subtotal: { type: Number, required: true },
+        discount: { type: Number, default: 0 },
+        image: String,
+      },
+    ],
 
     subtotal: { type: Number, required: true },
     tax_amount: { type: Number, default: 0 },
@@ -29,8 +44,8 @@ const orderSchema = new mongoose.Schema(
 
     payment_status: {
       type: String,
-      enum: ["authorized", "captured", "settled", "failed", "paid"],
-      default: "failed",
+      enum: ["pending", "failed", "paid"],
+      default: "pending",
     },
 
     order_status: {
@@ -47,39 +62,31 @@ const orderSchema = new mongoose.Schema(
       default: "pending",
     },
 
-    shipping_method: { type: String },
-    tracking_number: { type: String },
-    shipping_carrier: { type: String },
-    estimated_delivery_date: { type: Date },
-    actual_delivery_date: { type: Date },
+    address_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ShippingAddress",
+      //   required: true,
+    },
 
-    billing_address_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "ShippingAddress",
-      //   required: true,
-    },
-    shipping_address_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "ShippingAddress",
-      //   required: true,
-    },
+    stripe_session_id: String,
+    stripe_payment_intent: String,
 
     voucher_id: { type: mongoose.Schema.Types.ObjectId, ref: "Voucher" },
     special_instructions: { type: String },
     internal_notes: { type: String },
 
-    cancelled_at: { type: Date },
-    cancellation_reason: { type: String },
+    cancelled_at: Date,
+    cancellation_reason: String,
     cancelled_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     flagged: { type: Boolean, default: false },
     flagged_at: { type: Date },
     flagged_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     flagged_reason: { type: String },
     refund_amount: { type: Number, default: 0 },
-    refund_reason: { type: String },
-    refunded_at: { type: Date },
+    refund_reason: String,
+    refunded_at: Date,
 
-    deleted_at: { type: Date },
+    deleted_at: Date,
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );
