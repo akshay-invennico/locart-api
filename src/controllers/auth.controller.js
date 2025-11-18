@@ -471,6 +471,93 @@ const forgotPassword = async (req, res) => {
   }
 };
 
+const forgotPasswordMobile = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email_address: email, status: "active" });
+
+    if (!user) {
+      return res.json({ success: true, message: "User not registered" });
+    }
+
+    const otp = generateOtp();
+
+    user.otp = otp;
+    user.otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    await user.save();
+
+    await sendEmail({
+      to: user.email_address,
+      subject: "Reset Password OTP",
+      text: "Reset your password",
+      html: `<p>Your OTP is <b>${otp}</b></p>`
+    });
+
+    return res.json({
+      success: true,
+      message: "OTP sent to your email"
+    });
+
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+};
+
+const verifyOtpMobile = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email_address: email });
+
+    if (!user || !user.otp || user.otp !== Number(otp)) {
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
+    }
+
+    if (user.otpExpiresAt < Date.now()) {
+      return res.status(400).json({ success: false, message: "OTP expired" });
+    }
+
+    return res.json({ success: true, message: "OTP verified" });
+
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+};
+
+const resetPasswordMobile = async (req, res) => {
+  try {
+    const { email, otp, password } = req.body;
+
+    const user = await User.findOne({ email_address: email }).select("+password");
+
+    if (!user || user.otp !== Number(otp)) {
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
+    }
+
+    if (user.otpExpiresAt < Date.now()) {
+      return res.status(400).json({ success: false, message: "OTP expired" });
+    }
+
+    user.password = password;
+    
+    user.otp = null;
+    user.otpExpiresAt = null;
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password reset successfully"
+    });
+
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+};
+
+
+
 // 🏪 Verify Reset Token
 const verifyResetToken = async (req, res) => {
   try {
@@ -558,5 +645,8 @@ module.exports = {
   resetPassword,
   registerUser,
   verifyOtp,
-  resendOtp
+  resendOtp,
+  forgotPasswordMobile,
+  verifyOtpMobile,
+  resetPasswordMobile
 };
