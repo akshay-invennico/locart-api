@@ -39,7 +39,7 @@ app.use(express.json());
 app.use("/api", rateLimiter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(cors({
-  origin: ["http://localhost:3000", "http://127.0.0.1:3000", "https://locart-backend.vercel.app"],
+  origin: ["http://localhost:3000", "http://127.0.0.1:3000", "https://locart-backend.vercel.app", "https://locart-api.onrender.com"],
   credentials: true,
 }));
 
