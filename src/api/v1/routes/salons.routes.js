@@ -44,7 +44,7 @@ router
   .patch(authMiddleware(["merchant"]), editHoliday)
   .delete(authMiddleware(["merchant"]), deleteHoliday);
 
-router.route("/availability/holidays/:id").get(authMiddleware(["merchant", "customer", "loctitian"]), getSalonHolidays)
+router.route("/availability/holidays").get(authMiddleware(["merchant", "customer", "loctitian"]), getSalonHolidays)
 
 router
   .route("/stylists/timeslots")

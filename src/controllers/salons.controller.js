@@ -609,17 +609,26 @@ const editHoliday = async (req, res) => {
 // @access  Private (merchant role)
 const getSalonHolidays = async (req, res) => {
   try {
-    const { id: salonId } = req.params;
+    const userId = req.user.id;
     const { fromDate, toDate } = req.query;
 
-    if (!salonId) {
-      return res.status(400).json({
+    const merchantId = await Merchant.findOne({
+      user_id: userId,
+    })
+
+    const salon = await Salon.findOne({
+      merchant_id: merchantId,
+      deleted_at: null
+    });
+
+    if (!salon) {
+      return res.status(404).json({
         success: false,
-        message: "Salon ID is required",
+        message: "Salon not found",
       });
     }
 
-    const query = { salon_id: salonId, deleted_at: null };
+    const query = { salon_id: salon._id, deleted_at: null };
 
     if (fromDate || toDate) {
       query.date = {};
