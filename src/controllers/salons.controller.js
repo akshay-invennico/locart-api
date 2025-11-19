@@ -101,16 +101,17 @@ const createSalon = async (req, res) => {
 // @access  Private (merchant role)
 const getMySalon = async (req, res) => {
   try {
-    const { id: salonId } = req.params;
+    const userId = req.user.id;
 
-    if (!salonId) {
-      return res.status(400).json({
-        success: false,
-        message: "Salon ID is required",
-      });
-    }
+    const merchantId = await Merchant.findOne({
+      user_id: userId,
+    })
 
-    const salon = await Salon.findById(salonId);
+    const salon = await Salon.findOne({
+      merchant_id: merchantId,
+      deleted_at: null
+    });
+
     if (!salon) {
       return res.status(404).json({
         success: false,

@@ -28,6 +28,7 @@ const {
 
 router
   .route("/")
+  .get(authMiddleware(["merchant", "customer", "loctitian"]), getMySalon)
   .post(authMiddleware(["merchant"]), upload.none(), createSalon)
   .patch(authMiddleware(["merchant"]), addAmenitiesToSalon);
 
@@ -64,7 +65,6 @@ router
 
 router
   .route("/:id")
-  .get(authMiddleware(["merchant", "customer", "loctitian"]), getMySalon)
   .patch(authMiddleware(["merchant"]), upload.none(), updateSalon)
   .delete(authMiddleware(["merchant"]), deleteSalon);
 
