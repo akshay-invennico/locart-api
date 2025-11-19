@@ -38,6 +38,7 @@ const userSchema = new mongoose.Schema(
     otpExpiresAt: { type: Date },
 
     deleted_at: { type: Date },
+    deleted_reason: { type: String }
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

@@ -117,7 +117,7 @@ const changePassword = async (req, res) => {
 const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { password } = req.body;
+    const { reason, password } = req.body;
 
     if (!password) {
       return res.status(400).json({
@@ -142,6 +142,7 @@ const deleteAccount = async (req, res) => {
       });
     }
 
+    user.deleted_reason = reason;
     user.status = "inactive";
     user.deleted_at = new Date();
     await user.save();
