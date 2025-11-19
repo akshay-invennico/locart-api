@@ -2,13 +2,20 @@ const Merchant = require("../models/merchant.model");
 const Service = require("../models/service.model");
 const Salon = require("../models/salons.model");
 const SalonService = require("../models/salonService.model");
+const Stylist = require("../models/stylists.model");
 
 // @desc    Create a new service
 // @route   POST /api/services
 // @access  Private (merchant)
 const createService = async (req, res) => {
   try {
-    const { name, description, icon, duration, base_price } = req.body;
+    const { name, description, icon, duration, base_price, category_id } = req.body;
+
+    if (!category_id)
+      return res.status(400).json({
+        success: false,
+        message: "category is required",
+      });
 
     if (duration < 15) {
       return res.status(400).json({
@@ -23,14 +30,14 @@ const createService = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Merchant not found" });
 
-    const service = new Service({
+    const service = await Service.create({
       name,
       description,
       icon,
       duration,
       base_price,
+      category_id,
     });
-    await service.save();
 
     const salons = await Salon.find({
       merchant_id: merchant._id,
@@ -67,21 +74,32 @@ const getServices = async (req, res) => {
       minPrice,
       maxPrice,
       duration,
+      category_id,
+      stylist_id,
       page = 1,
       limit = 10,
     } = req.query;
 
-    // Build filter object for Service
     let serviceFilter = { deleted_at: null };
 
     if (search) {
-      serviceFilter.name = { $regex: search, $options: "i" }; // case-insensitive
+      serviceFilter.name = { $regex: search, $options: "i" };
+    }
+
+    if (category_id) {
+      const categories = Array.isArray(category_id)
+        ? category_id
+        : category_id.split(",");
+
+      serviceFilter.category_id = { $in: categories };
     }
 
     if (status) {
-      if (status.toLowerCase() === "active") serviceFilter.deleted_at = null;
-      else if (status.toLowerCase() === "inactive")
+      if (status.toLowerCase() === "inactive") {
         serviceFilter.deleted_at = { $ne: null };
+      } else {
+        serviceFilter.deleted_at = null;
+      }
     }
 
     if (minPrice)
@@ -96,56 +114,77 @@ const getServices = async (req, res) => {
       };
     if (duration) serviceFilter.duration = duration;
 
-    // Pagination
-    const skip = (Number(page) - 1) * Number(limit);
+    let stylistServiceIds = null;
 
-    // Find services via SalonService to ensure only services linked to salons
-    const salonServices = await SalonService.find({
-      deleted_at: null,
-    }).populate({
+    if (stylist_id) {
+      const stylistIds = Array.isArray(stylist_id)
+        ? stylist_id
+        : stylist_id.split(",");
+
+      const stylists = await Stylist.find({
+        _id: { $in: stylistIds },
+        deleted_at: null,
+      }).select("services");
+
+      stylistServiceIds = [
+        ...new Set(
+          stylists.flatMap((stylist) =>
+            stylist.services.map((s) => s.toString())
+          )
+        ),
+      ];
+
+      if (stylistServiceIds.length === 0) {
+        return res.status(200).json({
+          success: true,
+          data: { services: [], pagination: { total: 0, page, limit, totalPages: 0 } },
+        });
+      }
+    }
+
+    const salonServices = await SalonService.find({ deleted_at: null }).populate({
       path: "service_id",
-      match: serviceFilter,
+      match: {
+        ...serviceFilter,
+
+        // Apply stylist-based restriction
+        ...(stylistServiceIds && {
+          _id: { $in: stylistServiceIds },
+        }),
+      },
+      populate: { path: "category_id" },
     });
 
     let services = salonServices
       .map((ss) => ss.service_id)
-      .filter((s) => s);
+      .filter(Boolean);
 
-    const uniqueServicesMap = new Map();
-    services.forEach((s) => uniqueServicesMap.set(s._id.toString(), s));
-    services = Array.from(uniqueServicesMap.values());
+    services = [...new Map(services.map((s) => [s._id, s])).values()];
 
     const total = services.length;
 
-    // Apply pagination
+    // Pagination
+    const skip = (page - 1) * limit;
     services = services.slice(skip, skip + Number(limit));
-
-    // Format output
-    const formattedServices = services.map((s) => ({
-      _id: s._id,
-      serviceName: s.name,
-      iconUrl: s.icon,
-      basePrice: s.base_price,
-      duration: s.duration,
-      serviceStatus: s.deleted_at ? "Inactive" : "Active",
-    }));
 
     res.status(200).json({
       success: true,
       data: {
-        services: formattedServices,
+        services,
         pagination: {
           total,
           page: Number(page),
           limit: Number(limit),
-          totalPages: Math.ceil(total / Number(limit)),
+          totalPages: Math.ceil(total / limit),
         },
       },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Server Error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
   }
 };
 
@@ -156,32 +195,21 @@ const getServiceById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: "Service ID is required",
-      });
-    }
-
-    const service = await Service.findById(id);
-    if (!service) {
-      return res.status(404).json({
-        success: false,
-        message: "Service not found",
-      });
-    }
+    const service = await Service.findById(id).populate("category_id");
+    if (!service)
+      return res
+        .status(404)
+        .json({ success: false, message: "Service not found" });
 
     const salonService = await SalonService.findOne({
       service_id: id,
       deleted_at: null,
     }).populate("salon_id");
 
-    if (!salonService || !salonService.salon_id) {
-      return res.status(404).json({
-        success: false,
-        message: "Salon not found for this service",
-      });
-    }
+    if (!salonService)
+      return res
+        .status(404)
+        .json({ success: false, message: "Salon not found for this service" });
 
     const salon = salonService.salon_id;
     const formattedLocation = `${salon.streetAddress}, ${salon.city}, ${salon.state} ${salon.zipCode}`;
@@ -190,6 +218,7 @@ const getServiceById = async (req, res) => {
       success: true,
       data: {
         service,
+        category: service.category_id,
         salon: {
           id: salon._id,
           name: salon.name,

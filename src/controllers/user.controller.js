@@ -1,5 +1,5 @@
 const User = require("../models/user.model");
-const { uploadToS3, deleteFromS3 } = require("../services/awsS3");
+const { uploadToS3 } = require("../services/awsS3");
 
 const editUserProfile = async (req, res) => {
   try {
@@ -49,8 +49,6 @@ const deleteProfilePhoto = async (req, res) => {
     if (!user.profile_picture) {
       return res.status(400).json({ success: false, message: "No profile photo to delete" });
     }
-
-    await deleteFromS3(user.profile_picture);
 
     user.profile_picture = null;
     await user.save();

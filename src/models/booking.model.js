@@ -53,6 +53,7 @@ const bookingSchema = new mongoose.Schema(
         "pending",
         "completed",
         "cancelled",
+        "flagged"
       ],
       default: "upcoming",
     },
