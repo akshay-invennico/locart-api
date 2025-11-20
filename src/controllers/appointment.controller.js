@@ -1072,7 +1072,7 @@ const createCheckoutSessionForService = async (
               ? `Partial payment (${booking.partial_percentage}%)`
               : `Full service payment`,
           },
-          unit_amount: payable_amount * 100, 
+          unit_amount: payable_amount * 100,
         },
         quantity: 1,
       },
@@ -1086,6 +1086,14 @@ const createCheckoutSessionForService = async (
       is_partial_payment: booking.is_partial_payment,
     },
 
+    payment_intent_data: {
+      metadata: {
+        bookingId: booking._id.toString(),
+        type: "service",
+        is_partial_payment: booking.is_partial_payment,
+      },
+    },
+
     success_url: `${process.env.FRONTEND_URL}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.FRONTEND_URL}/booking-cancelled`,
   });
@@ -1094,7 +1102,7 @@ const createCheckoutSessionForService = async (
     url: session.url,
     sessionId: session.id,
   };
-}
+};
 
 const verifyPayment = async (req, res) => {
   try {
