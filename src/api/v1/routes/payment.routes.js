@@ -66,8 +66,6 @@ router.post(
     let event;
 
     try {
-      console.log("webhook is being called")
-      console.log(`${process.env.STRIPE_WEBHOOK_SERVICE_SECRET} service webhook secret`)
       const sig = req.headers["stripe-signature"];
 
       event = stripe.webhooks.constructEvent(
@@ -82,12 +80,9 @@ router.post(
     res.json({ received: true });
 
     try {
-      console.log("credentials are passed")
       if (event.type === "payment_intent.succeeded") {
         const paymentIntent = event.data.object;
-        console.log("payment intent is success")
         const bookingId = paymentIntent.metadata.bookingId;
-        console.log(bookingId, "booking id")
 
         if (!bookingId) {
           console.error("Booking id is missing in metadata");
