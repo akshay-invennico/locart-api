@@ -10,12 +10,20 @@ const {
   refundBooking,
   getRefundSummary,
   markAsCompleted,
+  createServiceBooking,
+  verifyPayment,
+  getBookingSummary,
 } = require("../../../controllers/appointment.controller");
 
 router
   .route("/")
   .post(authMiddleware(["merchant"]), createBooking)
   .get(authMiddleware(["merchant"]), getAllBookings);
+
+
+router.route("/book").post(authMiddleware(["merchant", "customer", "loctitian"]), createServiceBooking)
+router.route("/book/verify").get(authMiddleware(["merchant", "customer", "loctitian"]), verifyPayment)
+router.route("/book/summary/:id").get(authMiddleware(["merchant", "customer", "loctitian"]), getBookingSummary)
 
 router
   .route("/complete")

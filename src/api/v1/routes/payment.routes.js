@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const stripe = require('../../../utils/stripe')
-const Order = require('../../../models/order.model')
+const Order = require('../../../models/order.model');
+const Booking = require("../../../models/booking.model");
 
 router.post(
   "/webhook",
@@ -56,5 +57,67 @@ router.post(
     }
   }
 );
+
+
+router.post(
+  "/webhook/service",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    let event;
+
+    try {
+      console.log("webhook is being called")
+      console.log(`${process.env.STRIPE_WEBHOOK_SERVICE_SECRET} service webhook secret`)
+      const sig = req.headers["stripe-signature"];
+
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SERVICE_SECRET
+      );
+    } catch (err) {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    res.json({ received: true });
+
+    try {
+      console.log("credentials are passed")
+      if (event.type === "payment_intent.succeeded") {
+        const paymentIntent = event.data.object;
+        console.log("payment intent is success")
+        const bookingId = paymentIntent.metadata.bookingId;
+        console.log(bookingId, "booking id")
+
+        if (!bookingId) {
+          console.error("Booking id is missing in metadata");
+          return;
+        }
+
+        await Booking.findByIdAndUpdate(bookingId, {
+          payment_status: "paid",
+          stripe_payment_intent: paymentIntent.id,
+        });
+
+        console.log("Booking marked as Paid:", bookingId);
+      }
+
+      if (event.type === "payment_intent.payment_failed") {
+        const paymentIntent = event.data.object;
+
+        const bookingId = paymentIntent.metadata.bookingId; 
+
+        await Booking.findByIdAndUpdate(bookingId, {
+          payment_status: "failed",
+        });
+
+        console.log("Booking Payment Failed:", bookingId);
+      }
+    } catch (err) {
+      console.error("Webhook processing error:", err);
+    }
+  }
+);
+
 
 module.exports = router;
