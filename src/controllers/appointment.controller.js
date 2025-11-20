@@ -7,6 +7,7 @@ const Stylist = require("../models/stylists.model");
 const Booking = require("../models/booking.model");
 const BookedService = require("../models/booked_service.model");
 const Transaction = require("../models/transation.model");
+const stripe = require("../utils/stripe")
 
 const generateRandomPassword = () => {
   return crypto.randomBytes(6).toString("hex");
@@ -976,6 +977,200 @@ const getRefundSummary = async (req, res) => {
     });
   }
 };
+
+const createServiceBooking = async (req, res) => {
+  try {
+    const {
+      service_id,
+      stylist_id,
+      service_date,
+      service_start_time,
+      service_end_time,
+      is_partial_payment,
+    } = req.body;
+
+    const service = await Service.findById(service_id);
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+      });
+    }
+
+    const price = Number(service.base_price);
+    const tax_percentage = Number(process.env.TAX_PERCENTAGE) || 0;
+    const partial_percentage =
+      Number(process.env.PARTIAL_AMOUNT_PERCENTAGE) || 0;
+
+    const taxes = (price * tax_percentage) / 100;
+    const grand_total = price + taxes;
+
+    let payable_amount = grand_total;
+
+    if (is_partial_payment === true || is_partial_payment === "true") {
+      payable_amount = (grand_total * partial_percentage) / 100;
+    }
+
+    const booking = await Booking.create({
+      booking_number: "BOOK-" + Date.now(),
+      user_id: req.user.id,
+      stylist_id,
+      subtotal: price,
+      total_taxes: taxes,
+      grand_total,
+      total_discount: 0,
+      total_duration: service.duration,
+      stylist_duration: service.duration,
+      service_date,
+      service_start_time,
+      service_end_time,
+      is_partial_payment: is_partial_payment ? true : false,
+      payable_amount,
+      partial_percentage: is_partial_payment ? partial_percentage : 0,
+      booking_mode: "online"
+    });
+
+    const session = await createCheckoutSessionForService(
+      booking,
+      service,
+      payable_amount,
+      req
+    );
+
+    booking.stripe_session_id = session.sessionId;
+    await booking.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Booking created successfully",
+      checkoutUrl: session.url,
+      booking_id: booking._id,
+      payable_amount,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const createCheckoutSessionForService = async (
+  booking,
+  service,
+  payable_amount,
+  req
+) => {
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    mode: "payment",
+
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: service.name,
+            description: booking.is_partial_payment
+              ? `Partial payment (${booking.partial_percentage}%)`
+              : `Full service payment`,
+          },
+          unit_amount: payable_amount * 100, 
+        },
+        quantity: 1,
+      },
+    ],
+
+    customer_email: req.user.email,
+
+    metadata: {
+      bookingId: booking._id.toString(),
+      type: "service",
+      is_partial_payment: booking.is_partial_payment,
+    },
+
+    success_url: `${process.env.FRONTEND_URL}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.FRONTEND_URL}/booking-cancelled`,
+  });
+
+  return {
+    url: session.url,
+    sessionId: session.id,
+  };
+}
+
+const verifyPayment = async (req, res) => {
+  try {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).json({ message: "session_id is required" });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    const bookingId = session.metadata.bookingId;
+    const booking = await Booking.findById(bookingId);
+
+    return res.json({
+      success: true,
+      payment_status: booking.payment_status,
+      booking_status: booking.booking_status,
+      booking_id: booking._id
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getBookingSummary = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+
+    const booking = await Booking.findById(bookingId)
+      .populate("stylist_id")           
+      .populate("user_id")              
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking summary fetched successfully",
+      data: {
+        booking_id: booking._id,
+        booking_number: booking.booking_number,
+        user: booking.user_id,
+        stylist: booking.stylist_id,
+        items: booking.items,
+        payment: {
+          subtotal: booking.subtotal,
+          taxes: booking.total_taxes,
+          discount: booking.total_discount,
+          grand_total: booking.grand_total,
+          payable_amount: booking.payable_amount,
+          is_partial_payment: booking.isPartialPayment,
+        },
+        schedule: {
+          date: booking.service_date,
+          start_time: booking.service_start_time,
+          end_time: booking.service_end_time,
+        },
+        status: booking.booking_status,
+        stripe_session_id: booking.stripe_session_id,
+        created_at: booking.createdAt,
+      },
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 module.exports = {
   createBooking,
   getAllBookings,
@@ -984,5 +1179,8 @@ module.exports = {
   updateBookingStatusBulk,
   refundBooking,
   getRefundSummary,
-  markAsCompleted
+  markAsCompleted,
+  createServiceBooking,
+  verifyPayment,
+  getBookingSummary
 };

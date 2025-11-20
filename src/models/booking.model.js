@@ -15,7 +15,6 @@ const bookingSchema = new mongoose.Schema(
     saloon_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Salon",
-      required: true,
     },
     grand_total: { type: Number, required: true },
     subtotal: { type: Number, required: true },
@@ -40,6 +39,11 @@ const bookingSchema = new mongoose.Schema(
       enum: ["store", "online"],
       default: "store",
     },
+
+    is_partial_payment: { type: Boolean, default: false },
+    partial_percentage: { type: Number, default: 0 },
+    payable_amount: { type: Number, default: 0 },
+
     payment_status: {
       type: String,
       enum: ["pending", "authorized", "captured", "settled", "failed", "paid"],
@@ -61,6 +65,9 @@ const bookingSchema = new mongoose.Schema(
     service_date: { type: Date, required: true },
     service_start_time: { type: String, required: true }, // store as HH:mm:ss string
     service_end_time: { type: String, required: true },
+
+    stripe_session_id: String,
+    stripe_payment_intent: String,
 
     cancelled_at: { type: Date },
     cancellation_reason: { type: String },
