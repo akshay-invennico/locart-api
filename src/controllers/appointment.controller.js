@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const crypto = require("crypto");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const Service = require("../models/service.model");
@@ -7,11 +6,8 @@ const Stylist = require("../models/stylists.model");
 const Booking = require("../models/booking.model");
 const BookedService = require("../models/booked_service.model");
 const Transaction = require("../models/transation.model");
-const stripe = require("../utils/stripe")
-
-const generateRandomPassword = () => {
-  return crypto.randomBytes(6).toString("hex");
-};
+const stripe = require("../utils/stripe");
+const { createEvents } = require("ics");
 
 // @desc Create booking
 // @route POST /api/v1/appointment
@@ -45,7 +41,6 @@ const createBooking = async (req, res) => {
 
     // 1️⃣ Handle client (new / existing)
     let customer;
-    let plainPassword = null;
 
     if (!client || !client.type) {
       throw new Error("Client type is required");
@@ -92,14 +87,13 @@ const createBooking = async (req, res) => {
       }
 
       // Create new client user
-      plainPassword = generateRandomPassword();
       const [newUser] = await User.create(
         [
           {
             name: client.name,
             email_address: client.email,
-            password: plainPassword,
             phone_number: client.phone,
+            isVerified: false,
           },
         ],
         { session }
@@ -262,14 +256,6 @@ const createBooking = async (req, res) => {
         status: payment_status,
       },
     };
-
-    if (plainPassword) {
-      // todo: send email to user
-      responseData.credentials = {
-        email: customer.email_address,
-        password: plainPassword,
-      };
-    }
 
     return res.status(201).json({
       success: true,
@@ -1031,6 +1017,21 @@ const createServiceBooking = async (req, res) => {
       booking_mode: "online"
     });
 
+
+
+    await BookedService.create({
+      booking_id: booking._id,
+      service_id: service._id,
+      stylist_id: stylist_id,
+      quantity: 1,
+      unit_price: price,
+      total: grand_total,
+      discount: 0,
+      taxes: taxes,
+      duration: service.duration || 60,
+      service_status: "pending",
+    });
+
     const session = await createCheckoutSessionForService(
       booking,
       service,
@@ -1180,6 +1181,91 @@ const getBookingSummary = async (req, res) => {
   }
 };
 
+const addToCalendar = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking ID is required",
+      });
+    }
+
+    const booking = await Booking.findById(id)
+      .populate("user_id", "name email_address phone_number")
+      .populate({
+        path: "stylist_id",
+        populate: {
+          path: "user_id",
+          select: "name email_address phone_number",
+        },
+      })
+      .lean();
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    const bookedServices = await BookedService.find({
+      booking_id: booking._id,
+    })
+      .populate("service_id", "service_name duration")
+      .lean();
+
+    const [year, month, day] = booking.service_date
+      .toISOString()
+      .split("T")[0]
+      .split("-")
+      .map(Number);
+
+    const [hours, minutes] = booking.service_start_time
+      .split(":")
+      .map(Number);
+
+    const totalDuration = bookedServices.reduce(
+      (sum, bs) => sum + (bs.service_id?.duration || 0),
+      0
+    );
+
+    const eventData = {
+      title: `Salon Appointment - ${booking.user_id?.name}`,
+      description: "Your appointment is confirmed",
+      start: [year, month, day, hours, minutes],
+      duration: { minutes: totalDuration > 0 ? totalDuration : 60 },
+      location: booking.saloon_id?.address || "Salon Location",
+      status: "CONFIRMED",
+    };
+
+    createEvents([eventData], (error, value) => {
+      if (error) {
+        console.error(error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to generate calendar file",
+          error,
+        });
+      }
+
+      res.setHeader("Content-Type", "text/calendar");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=booking-${booking._id}.ics`
+      );
+      return res.send(value);
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createBooking,
   getAllBookings,
@@ -1191,5 +1277,6 @@ module.exports = {
   markAsCompleted,
   createServiceBooking,
   verifyPayment,
-  getBookingSummary
+  getBookingSummary,
+  addToCalendar
 };
