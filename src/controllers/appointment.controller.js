@@ -424,6 +424,7 @@ const getAllBookings = async (req, res) => {
         date: booking.service_date.toISOString().split("T")[0],
         time: booking.service_start_time,
         client: {
+          id: booking.user_id?._id,
           name: booking.user_id?.name,
           email: booking.user_id?.email_address,
           phone: booking.user_id?.phone_number,
