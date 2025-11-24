@@ -33,8 +33,71 @@ const getAllAddresses = async (req, res) => {
   }
 };
 
+const editAddress = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const address = await ShippingAddress.findOne({
+      _id: id,
+      user_id: req.user.id,
+      deleted_at: null
+    });
+
+    if (!address) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found"
+      });
+    }
+
+    Object.assign(address, req.body);
+    await address.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Address updated successfully",
+      data: address
+    });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+const deleteAddress = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const address = await ShippingAddress.findOne({
+      _id: id,
+      user_id: req.user.id,
+      deleted_at: null
+    });
+
+    if (!address) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found"
+      });
+    }
+
+    address.deleted_at = new Date();
+    await address.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Address deleted successfully"
+    });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
 module.exports = {
   createAddress,
-  getAllAddresses
+  getAllAddresses,
+  editAddress,
+  deleteAddress
 }
