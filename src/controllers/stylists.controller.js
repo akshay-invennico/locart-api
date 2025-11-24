@@ -4,174 +4,141 @@ const Role = require("../models/role.model");
 const User = require("../models/user.model");
 const Merchant = require("../models/merchant.model");
 const Salon = require("../models/salons.model");
-const crypto = require("crypto");
 const Booking = require("../models/booking.model");
 const moment = require("moment");
-
-const generateRandomPassword = () => {
-  return crypto.randomBytes(6).toString("hex");
-};
+const sendEmail = require("../utils/sendEmail");
+const bcrypt = require("bcrypt")
 
 // @desc Create stylist
 // @route POST /api/v1/store/stylists
 // @access Merchant
 const createStylist = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const {
       fullName,
       email,
+      dialing_code,
       phoneNumber,
+      specialization,
       services,
       workingDays,
       workingHours,
       experience,
       status,
+      password,
+      about
     } = req.body;
 
     const profilePhoto = req.file ? req.file.path : null;
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Check if requester has merchant role
     const merchantUserId = req.user.id;
     const merchantRole = await Role.findOne({
       role_name: "merchant",
       users: merchantUserId,
-    }).session(session);
+    });
 
     if (!merchantRole) {
-      await session.abortTransaction();
       return res.status(403).json({
         success: false,
         message: "Only merchants can create stylists",
       });
     }
 
-    // ✅ Find the merchant profile
     const merchant = await Merchant.findOne({
       user_id: merchantUserId,
-    }).session(session);
+    });
+
     if (!merchant) {
-      await session.abortTransaction();
-      return res
-        .status(404)
-        .json({ success: false, message: "Merchant not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Merchant not found",
+      });
     }
 
-    // ✅ Find the salon linked to this merchant
-    const salon = await Salon.findOne({ merchant_id: merchant._id }).session(
-      session
-    );
+    const salon = await Salon.findOne({ merchant_id: merchant._id });
     if (!salon) {
-      await session.abortTransaction();
-      return res
-        .status(404)
-        .json({ success: false, message: "Salon not found for this merchant" });
+      return res.status(404).json({
+        success: false,
+        message: "Salon not found for this merchant",
+      });
     }
 
-    // ✅ Check if stylist already exists with same email
-    const existingUser = await User.findOne({ email_address: email }).session(
-      session
-    );
+    const existingUser = await User.findOne({ email_address: email });
     if (existingUser) {
-      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "Stylist with this email already exists",
       });
     }
 
-    // ✅ Generate random password
-    const plainPassword = generateRandomPassword();
+    const user = await User.create({
+      name: fullName,
+      email_address: email,
+      password: hashedPassword,
+      dialing_code,
+      phone_number: phoneNumber,
+      profile_photo: profilePhoto,
+    });
 
-    // ✅ Create User
-    const user = await User.create(
-      [
-        {
-          name: fullName,
-          email_address: email,
-          password: plainPassword,
-          phone_number: phoneNumber,
-          profile_photo: profilePhoto,
-        },
-      ],
-      { session }
-    );
+    const stylist = await Stylist.create({
+      user_id: user._id,
+      saloon_id: salon._id,
+      experience_years: parseInt(experience) || 0,
+      specialties: specialization,
+      bio: about,
+      services,
+      workingDays,
+      workingHours,
+      status: status || "active",
+    });
 
-    // ✅ Create Stylist
-    const stylist = await Stylist.create(
-      [
-        {
-          user_id: user[0]._id,
-          saloon_id: salon._id,
-          experience_years: parseInt(experience) || 0,
-          services,
-          workingDays, // ✅ Make sure these are like ["Monday", "Tuesday"]
-          workingHours,
-          status: status || "active",
-        },
-      ],
-      { session }
-    );
+    let stylistRole = await Role.findOne({ role_name: "loctitian" });
 
-    // ✅ Assign stylist role
-    let stylistRole = await Role.findOne({ role_name: "loctitian" }).session(
-      session
-    );
     if (!stylistRole) {
-      stylistRole = await Role.create(
-        [
-          {
-            role_name: "loctitian",
-            description: "Stylist specializing in locs",
-            users: [user[0]._id],
-          },
-        ],
-        { session }
-      );
+      stylistRole = await Role.create({
+        role_name: "loctitian",
+        description: "Stylist specializing in locs",
+        users: [user._id],
+      });
     } else {
-      if (!stylistRole.users.includes(user[0]._id)) {
-        stylistRole.users.push(user[0]._id);
-        await stylistRole.save({ session });
+      if (!stylistRole.users.includes(user._id)) {
+        stylistRole.users.push(user._id);
+        await stylistRole.save();
       }
     }
 
-    await session.commitTransaction();
-    session.endSession();
+    const totalBookings = stylist.total_bookings || 0;
+    const rating = parseFloat(stylist.ratings?.toString() || "0");
+    const totalEarnings = calculateTotalEarnings(stylist);
 
-    const totalBookings = stylist[0].total_bookings || 0;
-    const rating = parseFloat(stylist[0].ratings?.toString() || "0");
-    const totalEarnings = calculateTotalEarnings(stylist[0]);
+    await sendEmail({
+      to: email,
+      subject: "Stylist Credentials",
+      text: `You can login with this ${password} to your account`,
+    });
 
     return res.status(201).json({
       success: true,
       message: "Stylist created successfully",
       stylist: {
-        id: stylist[0]._id,
-        fullName: user[0].name,
-        email: user[0].email_address,
-        phone: user[0].phone_number,
-        services: stylist[0].services,
-        workingDays: stylist[0].workingDays,
-        workingHours: stylist[0].workingHours,
-        experience_years: stylist[0].experience_years,
-        status: stylist[0].status,
-        profilePhoto: user[0].profile_photo,
+        id: stylist._id,
+        fullName: user.name,
+        email: user.email_address,
+        phone: user.phone_number,
+        services: stylist.services,
+        workingDays: stylist.workingDays,
+        workingHours: stylist.workingHours,
+        experience_years: stylist.experience_years,
+        specialization: stylist.specialization,
+        status: stylist.status,
+        profilePhoto: user.profile_photo,
         totalBookings,
         totalEarnings,
         rating,
       },
-
-      // todo: it will be send to stylist email
-      credentials: {
-        email: user[0].email_address,
-        password: plainPassword,
-      },
     });
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -689,6 +656,63 @@ const getTimeSlots = async (req, res) => {
   }
 };
 
+const getAllStylistsDetails = async (req, res) => {
+  try {
+    const stylists = await Stylist.aggregate([
+      {
+        $match: { deleted_at: null }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "userDetails"
+        }
+      },
+      { $unwind: "$userDetails" },
+
+      {
+        $lookup: {
+          from: "reviews",
+          let: { stylistUserId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$stylist_id", "$$stylistUserId"] }
+              }
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "customer_id",
+                foreignField: "_id",
+                as: "customerDetails"
+              }
+            },
+            { $unwind: "$customerDetails" }
+          ],
+          as: "reviews"
+        }
+      }
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "All Stylists with Reviews fetched successfully",
+      data: stylists
+    });
+
+  } catch (error) {
+    console.error("Error fetching stylists:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 function calculateTotalEarnings(stylist) {
   try {
     const rate = parseFloat(stylist.hourly_rate?.toString() || "0");
@@ -706,5 +730,6 @@ module.exports = {
   getStylistById,
   deleteStylist,
   getTimeSlots,
-  getAvailableStylists
+  getAvailableStylists,
+  getAllStylistsDetails
 };

@@ -23,7 +23,8 @@ const {
   getStylistById,
   deleteStylist,
   getTimeSlots,
-  getAvailableStylists
+  getAvailableStylists,
+  getAllStylistsDetails
 } = require("../../../controllers/stylists.controller");
 
 router
@@ -55,6 +56,10 @@ router
   .get(authMiddleware(["merchant", "customer", "loctitian"]), getAllStylists)
   .post(authMiddleware(["merchant"]), upload.none(), createStylist)
   .patch(authMiddleware(["merchant"]), upload.none(), updateStylist);
+
+  router
+  .route("/stylists/details")
+  .get(authMiddleware(["merchant", "customer", "loctitian"]), getAllStylistsDetails);
 
 router.route("/stylists/available").get(authMiddleware(["merchant", "customer", "loctitian"]), getAvailableStylists);
 
