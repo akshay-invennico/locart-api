@@ -10,8 +10,6 @@ const shippingAddressSchema = new mongoose.Schema(
 
     address_type: {
       type: String,
-      enum: ["home", "office", "other"],
-      default: "other",
     },
 
     name: { type: String, required: true },

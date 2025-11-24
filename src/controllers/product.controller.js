@@ -10,6 +10,7 @@ const createProduct = async (req, res) => {
   try {
     const {
       name,
+      subtitle,
       description,
       status,
       stock_quantity,
@@ -67,6 +68,7 @@ const createProduct = async (req, res) => {
       merchant_id: merchant._id,
       saloon_id: salon._id || null,
       name,
+      subtitle,
       description,
       status,
       stock_quantity,

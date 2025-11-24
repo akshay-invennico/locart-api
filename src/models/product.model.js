@@ -17,22 +17,11 @@ const productSchema = new mongoose.Schema(
       required: true,
       maxlength: 255,
     },
+    subtitle: {
+      type: String,
+    },
     description: {
       type: String,
-    },
-    sku: {
-      type: String,
-      unique: true,
-      sparse: true,
-      maxlength: 100,
-    },
-    barcode: {
-      type: String,
-      maxlength: 100,
-    },
-    brand: {
-      type: String,
-      maxlength: 100,
     },
     category_id: [
       {
@@ -40,13 +29,9 @@ const productSchema = new mongoose.Schema(
         ref: "Category",
       },
     ],
-    subcategory: {
-      type: String,
-      maxlength: 100,
-    },
     type: {
       type: String,
-      enum: ["physical", "digital", "service"],
+      enum: ["physical", "service"],
       default: "physical",
     },
     unit_price: {
@@ -95,33 +80,9 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    low_stock_threshold: {
-      type: Number,
-      default: 10,
-    },
-    allow_backorder: {
-      type: Boolean,
-      default: false,
-    },
     is_featured: {
       type: Boolean,
       default: false,
-    },
-    is_digital: {
-      type: Boolean,
-      default: false,
-    },
-    digital_file_url: {
-      type: String,
-      default: null,
-    },
-    requires_shipping: {
-      type: Boolean,
-      default: true,
-    },
-    shipping_class: {
-      type: String,
-      default: "standard",
     },
     ratings: {
       type: Number,
