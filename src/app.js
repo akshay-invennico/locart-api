@@ -28,6 +28,7 @@ const addressRoute = require("./api/v1/routes/address.routes")
 const cartRoute = require("./api/v1/routes/cart.routes")
 const reviewRoute = require("./api/v1/routes/review.routes")
 const ticketRoute = require("./api/v1/routes/ticket.routes")
+const albumRoute = require("./api/v1/routes/album.routes")
 
 // 🏃 App initialization
 const app = express();
@@ -65,6 +66,7 @@ app.use("/api/v1/user", userRoute);
 app.use("/api/v1/cart", cartRoute);
 app.use("/api/v1/review", reviewRoute);
 app.use("/api/v1/support", ticketRoute);
+app.use("/api/v1/album", albumRoute);
 
 app.get("/", (req, res) => {
   logger.info("⛑️ Health check endpoint hit for Locart API");

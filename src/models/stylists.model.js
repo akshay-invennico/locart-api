@@ -33,9 +33,6 @@ const stylistSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Decimal128,
       default: 0.0,
     },
-    availability_schedule: {
-      type: String,
-    },
     ratings: {
       type: mongoose.Schema.Types.Decimal128,
       default: 0.0,
@@ -56,9 +53,6 @@ const stylistSchema = new mongoose.Schema(
       type: String,
       enum: ["active", "inactive", "suspended"],
       default: "active",
-    },
-    hire_date: {
-      type: Date,
     },
     services: [
       {
