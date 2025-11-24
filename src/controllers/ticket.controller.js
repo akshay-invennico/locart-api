@@ -5,9 +5,6 @@ const createTicket = async (req, res) => {
   try {
     const { topic, description } = req.body;
 
-    console.log(topic, "topic");
-    console.log(description, "description");
-
     let attachments = [];
     if (req.files && req.files.length > 0) {
       try {
