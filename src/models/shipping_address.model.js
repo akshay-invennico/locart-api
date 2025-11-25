@@ -12,7 +12,7 @@ const shippingAddressSchema = new mongoose.Schema(
       type: String,
     },
 
-    name: { type: String, required: true },
+    name: { type: String },
     company: { type: String },
 
     address_line_1: { type: String, required: true },
