@@ -1181,6 +1181,76 @@ const getBookingSummary = async (req, res) => {
   }
 };
 
+const cancelBooking = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const { reason } = req.body;
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      user_id: req.user.id, 
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+    if (booking.booking_status !== "upcoming") {
+      return res.status(400).json({
+        success: false,
+        message: "Only upcoming bookings can be cancelled",
+      });
+    }
+    if (!booking.stripe_payment_intent) {
+      return res.status(400).json({
+        success: false,
+        message: "No payment intent found for this booking",
+      });
+    }
+    const paymentIntent = await stripe.paymentIntents.retrieve(
+      booking.stripe_payment_intent
+    );
+
+    if (!paymentIntent || paymentIntent.status !== "succeeded") {
+      return res.status(400).json({
+        success: false,
+        message: "Payment not completed, cannot refund.",
+      });
+    }
+    
+    const refundAmount = Math.round(booking.payable_amount * 100);
+    const refund = await stripe.refunds.create({
+      payment_intent: booking.stripe_payment_intent,
+      amount: refundAmount,
+      metadata: {
+        bookingId: booking._id.toString(),
+        reason,
+      },
+    });
+
+    booking.booking_status = "cancelled";
+    booking.payment_status = "refunded";
+    booking.cancelled_at = new Date();
+    booking.cancellation_reason = reason || "Not specified";
+    booking.cancelled_by = req.user.id;
+    await booking.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking cancelled & refund initiated successfully",
+      refund_id: refund.id,
+      refund_status: refund.status,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 const addToCalendar = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1278,5 +1348,6 @@ module.exports = {
   createServiceBooking,
   verifyPayment,
   getBookingSummary,
-  addToCalendar
+  addToCalendar,
+  cancelBooking
 };

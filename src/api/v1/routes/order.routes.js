@@ -12,6 +12,7 @@ const {
   getAllOrdersDetails,
   getOrderDetailsById,
   cancelOrder,
+  returnOrders,
 } = require("../../../controllers/order.controller");
 const router = express.Router();
 
@@ -31,5 +32,6 @@ router.route("/order/summary/:order_id").get(authMiddleware(["merchant", "custom
 router.route("/order/details").get(authMiddleware(["merchant", "customer", "loctitian"]), getAllOrdersDetails)
 router.route("/order/details/:id").get(authMiddleware(["merchant", "customer", "loctitian"]), getOrderDetailsById)
 router.route("/order/cancel/:id").post(authMiddleware(["merchant", "customer", "loctitian"]), cancelOrder)
+router.route("/order/return").post(authMiddleware(["merchant", "customer", "loctitian"]), returnOrders)
 
 module.exports = router;
