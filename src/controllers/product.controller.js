@@ -413,10 +413,110 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+const updateProductStatus = async (req, res) => {
+  try {
+    const { productIds, status } = req.body;
+
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "productIds must be a non-empty array",
+      });
+    }
+
+    const allowedStatus = ["active", "inactive"];
+    if (!status || !allowedStatus.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Allowed values: ${allowedStatus.join(", ")}`,
+      });
+    }
+
+    const filter = { _id: { $in: productIds } };
+    const result = await Product.updateMany(filter, {
+      $set: {
+        status,
+        updated_at: new Date(),
+      },
+    });
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No products found with given IDs",
+      });
+    }
+
+    const updatedProducts = productIds.map((id) => ({
+      product_id: id,
+      status,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Product status updated successfully",
+      matched: result.matchedCount,
+      updated: result.modifiedCount,
+      data: updatedProducts,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const bulkDeleteProducts = async (req, res) => {
+  try {
+    const { productIds } = req.body;
+
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "productIds must be a non-empty array",
+      });
+    }
+
+    const filter = { _id: { $in: productIds } };
+    const result = await Product.deleteMany(filter);
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No products found with given IDs",
+      });
+    }
+
+    const responseData = productIds.map((id) => ({
+      product_id: id,
+      deleted: true,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Products deleted successfully",
+      deleted: result.deletedCount,
+      data: responseData,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createProduct,
   getProducts,
   getProductById,
   updateProduct,
   deleteProduct,
+  updateProductStatus,
+  bulkDeleteProducts,
 };

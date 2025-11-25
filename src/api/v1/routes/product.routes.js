@@ -6,6 +6,8 @@ const {
   getProductById,
   updateProduct,
   deleteProduct,
+  updateProductStatus,
+  bulkDeleteProducts,
 } = require("../../../controllers/product.controller");
 const { uploadMultiple } = require("../../../middlewares/uploadMiddleware");
 const router = express.Router();
@@ -28,5 +30,8 @@ router
     updateProduct
   )
   .delete(authMiddleware(["merchant"]), deleteProduct);
+
+router.patch("/product/bulk-status", updateProductStatus);
+router.delete("/product/bulk-delete", bulkDeleteProducts);
 
 module.exports = router;
