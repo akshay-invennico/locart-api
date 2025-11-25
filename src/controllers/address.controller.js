@@ -72,22 +72,20 @@ const deleteAddress = async (req, res) => {
     const address = await ShippingAddress.findOne({
       _id: id,
       user_id: req.user.id,
-      deleted_at: null
     });
 
     if (!address) {
       return res.status(404).json({
         success: false,
-        message: "Address not found"
+        message: "Address not found",
       });
     }
 
-    address.deleted_at = new Date();
-    await address.save();
+    await ShippingAddress.findByIdAndDelete(id);
 
     res.status(200).json({
       success: true,
-      message: "Address deleted successfully"
+      message: "Address deleted successfully",
     });
 
   } catch (err) {
