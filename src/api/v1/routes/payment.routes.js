@@ -10,7 +10,6 @@ router.post(
   async (req, res) => {
     try {
       const sig = req.headers["stripe-signature"];
-
       let event;
 
       try {
@@ -19,27 +18,21 @@ router.post(
           sig,
           process.env.STRIPE_WEBHOOK_SECRET
         );
-
-        console.log("Webhook constructed successfully")
       } catch (err) {
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
-      // payment success
-      console.log(event.type, "event type")
-      if (event.type === "payment_intent.succeeded") {
-        const paymentIntent = event.data.object;
-        console.log(paymentIntent.metadata, "payment intent meta data")
-        const orderId = paymentIntent.metadata.orderId;
-
-        console.log(orderId, "order id")
-
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object;
+        const orderId = session.metadata.orderId;
+        const paymentIntentId = session.payment_intent;
+      
         await Order.findByIdAndUpdate(orderId, {
           payment_status: "paid",
           order_status: "confirmed",
-          stripe_payment_intent_id: paymentIntent.id,
+          stripe_payment_intent_id: paymentIntentId,
         });
-
+      
         console.log("Order marked as Paid:", orderId);
       }
 
@@ -105,7 +98,6 @@ router.post(
 
       if (event.type === "payment_intent.payment_failed") {
         const paymentIntent = event.data.object;
-
         const bookingId = paymentIntent.metadata.bookingId; 
 
         await Booking.findByIdAndUpdate(bookingId, {

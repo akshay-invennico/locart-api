@@ -675,11 +675,17 @@ const createCheckoutSession = async (order, req) => {
       line_items: lineItems,
       customer_email: req.user.email,
       metadata: {
-        orderId: order._id.toString()
+        orderId: order._id.toString(),
       },
+      payment_intent_data: {
+        metadata: {
+          orderId: order._id.toString(),
+        }
+      },
+    
       success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/payment-cancelled`,
-    });
+    });    
 
     return {
       success: true,
