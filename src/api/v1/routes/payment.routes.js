@@ -30,7 +30,7 @@ router.post(
         await Order.findByIdAndUpdate(orderId, {
           payment_status: "paid",
           order_status: "confirmed",
-          stripe_payment_intent_id: paymentIntentId,
+          stripe_payment_intent: paymentIntentId,
         });
       
         console.log("Order marked as Paid:", orderId);
@@ -90,6 +90,7 @@ router.post(
 
         await Booking.findByIdAndUpdate(bookingId, {
           payment_status: "paid",
+          booking_status: "upcoming",
           stripe_payment_intent: paymentIntent.id,
         });
 
