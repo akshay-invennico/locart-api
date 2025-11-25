@@ -19,14 +19,20 @@ router.post(
           sig,
           process.env.STRIPE_WEBHOOK_SECRET
         );
+
+        console.log("Webhook constructed successfully")
       } catch (err) {
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
       // payment success
+      console.log(event.type, "event type")
       if (event.type === "payment_intent.succeeded") {
         const paymentIntent = event.data.object;
+        console.log(paymentIntent.metadata, "payment intent meta data")
         const orderId = paymentIntent.metadata.orderId;
+
+        console.log(orderId, "order id")
 
         await Order.findByIdAndUpdate(orderId, {
           payment_status: "paid",

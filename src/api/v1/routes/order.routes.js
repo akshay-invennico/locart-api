@@ -9,6 +9,9 @@ const {
   createOrder,
   getOrderSummary,
   verifyPayment,
+  getAllOrdersDetails,
+  getOrderDetailsById,
+  cancelOrder,
 } = require("../../../controllers/order.controller");
 const router = express.Router();
 
@@ -25,5 +28,8 @@ router.route("/orders/flag").patch(authMiddleware(["merchant"]), flagOrder);
 router.route("/order/product").post(authMiddleware(["merchant", "customer", "loctitian"]), createOrder)
 router.route("/verify/payment").get(authMiddleware(["merchant", "customer", "loctitian"]), verifyPayment)
 router.route("/order/summary/:order_id").get(authMiddleware(["merchant", "customer", "loctitian"]), getOrderSummary)
+router.route("/order/details").get(authMiddleware(["merchant", "customer", "loctitian"]), getAllOrdersDetails)
+router.route("/order/details/:id").get(authMiddleware(["merchant", "customer", "loctitian"]), getOrderDetailsById)
+router.route("/order/cancel/:id").post(authMiddleware(["merchant", "customer", "loctitian"]), cancelOrder)
 
 module.exports = router;

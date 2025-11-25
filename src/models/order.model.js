@@ -36,9 +36,6 @@ const orderSchema = new mongoose.Schema(
     shipping_amount: { type: Number, default: 0 },
     discount_amount: { type: Number, default: 0 },
 
-    locart_coins_used: { type: Number, default: 0 },
-    locart_coins_value: { type: Number, default: 0 },
-
     total_amount: { type: Number, required: true },
     currency: { type: String, default: "USD" },
 
@@ -65,15 +62,12 @@ const orderSchema = new mongoose.Schema(
     address_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ShippingAddress",
-      //   required: true,
     },
 
     stripe_session_id: String,
     stripe_payment_intent: String,
 
     voucher_id: { type: mongoose.Schema.Types.ObjectId, ref: "Voucher" },
-    special_instructions: { type: String },
-    internal_notes: { type: String },
 
     cancelled_at: Date,
     cancellation_reason: String,

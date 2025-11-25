@@ -7,7 +7,8 @@ const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const ShippingAddress = require("../models/shipping_address.model");
 const ShippingZone = require("../models/shipping_zone.model");
-const stripe = require("../utils/stripe")
+const stripe = require("../utils/stripe");
+const { default: mongoose } = require("mongoose");
 
 const generateRandomPassword = () => {
   return crypto.randomBytes(6).toString("hex");
@@ -628,29 +629,52 @@ const getOrderSummary = async (req, res) => {
   }
 };
 
-const createCheckoutSession = async (order, req, res) => {
+const createCheckoutSession = async (order, req) => {
   try {
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],  
+    let lineItems = order.items.map(item => ({
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: item.name,
+          images: [item.image],
+        },
+        unit_amount: item.price * 100,
+      },
+      quantity: item.quantity,
+    }));
 
-      mode: "payment",
-
-      line_items: order.items.map(item => ({
+    if (order.tax_amount > 0) {
+      lineItems.push({
         price_data: {
           currency: "usd",
           product_data: {
-            name: item.name,
-            images: [item.image],
+            name: "Tax",
           },
-          unit_amount: item.price * 100,
+          unit_amount: Math.round(order.tax_amount * 100),
         },
-        quantity: item.quantity,
-      })),
+      });
+    }
 
+    if (order.shipping_amount > 0) {
+      lineItems.push({
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: "Shipping Charge",
+          },
+          unit_amount: Math.round(order.shipping_amount * 100),
+        },
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: lineItems,
       customer_email: req.user.email,
-
-      metadata: { orderId: order._id.toString() },
-
+      metadata: {
+        orderId: order._id.toString()
+      },
       success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/payment-cancelled`,
     });
@@ -692,6 +716,282 @@ const verifyPayment = async (req, res) => {
 };
 
 
+const getAllOrdersDetails = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const search = req.query.search?.trim() || "";
+
+    const orders = await Order.aggregate([
+      {
+        $match: {
+          user_id: new mongoose.Types.ObjectId(userId),
+          deleted_at: null
+        }
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "items.product_id",
+          foreignField: "_id",
+          as: "productDetails"
+        }
+      },
+      {
+        $addFields: {
+          items: {
+            $map: {
+              input: "$items",
+              as: "item",
+              in: {
+                $let: {
+                  vars: {
+                    product: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$productDetails",
+                            as: "p",
+                            cond: { $eq: ["$$p._id", "$$item.product_id"] }
+                          }
+                        },
+                        0
+                      ]
+                    }
+                  },
+                  in: {
+                    product_id: "$$item.product_id",
+                    quantity: "$$item.quantity",
+                    name: "$$product.name",
+                    price: { $toDecimal: "$$product.unit_price" },
+                    image: "$$product.featured_image",
+                    subtotal: "$$item.subtotal",
+                    discount: "$$item.discount"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      ...(search
+        ? [
+            {
+              $match: {
+                "items.name": { $regex: search, $options: "i" }
+              }
+            }
+          ]
+        : []),
+
+      { $project: { productDetails: 0 } },
+      { $sort: { created_at: -1 } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "User orders fetched successfully",
+      data: orders
+    });
+
+  } catch (error) {
+    console.error("getAllOrdersDetails Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+const getOrderDetailsById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const orderData = await Order.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(id),
+          user_id: new mongoose.Types.ObjectId(userId),
+          deleted_at: null
+        }
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "items.product_id",
+          foreignField: "_id",
+          as: "productDetails"
+        }
+      },
+      {
+        $lookup: {
+          from: "shippingaddresses",
+          localField: "address_id",
+          foreignField: "_id",
+          as: "address"
+        }
+      },
+
+      {
+        $unwind: {
+          path: "$address",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $addFields: {
+          items: {
+            $map: {
+              input: "$items",
+              as: "item",
+              in: {
+                $let: {
+                  vars: {
+                    product: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$productDetails",
+                            as: "p",
+                            cond: { $eq: ["$$p._id", "$$item.product_id"] }
+                          }
+                        },
+                        0
+                      ]
+                    }
+                  },
+                  in: {
+                    product_id: "$$item.product_id",
+                    quantity: "$$item.quantity",
+                    name: "$$product.name",
+                    price: { $toDecimal: "$$product.unit_price" },
+                    image: "$$product.featured_image",
+
+                    subtotal: "$$item.subtotal",
+                    discount: "$$item.discount"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      {
+        $project: {
+          productDetails: 0
+        }
+      }
+    ]);
+
+    if (!orderData.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Order details fetched successfully",
+      data: orderData[0]
+    });
+
+  } catch (error) {
+    console.error("getOrderDetailsById Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+const cancelOrder = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id: orderId } = req.params;
+    const { reason, otherReason } = req.body;
+
+    const order = await Order.findOne({
+      _id: orderId,
+      user_id: userId,
+      deleted_at: null,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.order_status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Order is already cancelled",
+      });
+    }
+
+    const nonCancellable = ["shipped", "delivered"];
+    if (nonCancellable.includes(order.order_status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Order cannot be cancelled in '${order.order_status}' state.`,
+      });
+    }
+
+    let refundData = null;
+    if (order.payment_status === "paid" && order.stripe_payment_intent) {
+      try {
+        refundData = await stripe.refunds.create({
+          payment_intent: order.stripe_payment_intent,
+          amount: Math.round(order.total_amount * 100),
+        });
+      } catch (err) {
+        console.error("Stripe Refund Error:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to process refund with Stripe",
+          error: err.message,
+        });
+      }
+    }
+
+    order.order_status = "cancelled";
+    order.cancelled_at = new Date();
+    order.cancelled_by = userId;
+    order.cancellation_reason = reason === "other" ? otherReason : reason;
+
+    if (refundData) {
+      order.refund_amount = order.total_amount;
+      order.refund_reason = order.cancellation_reason;
+      order.refunded_at = new Date();
+    }
+
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Order cancelled successfully",
+      data: {
+        order_id: order._id,
+        status: order.order_status,
+        refund: refundData || null,
+      },
+    });
+
+  } catch (error) {
+    console.error("Cancel Order Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 
 module.exports = {
   createShopOrder,
@@ -702,5 +1002,8 @@ module.exports = {
   createOrder,
   getOrderSummary,
   createCheckoutSession,
-  verifyPayment
+  verifyPayment,
+  getAllOrdersDetails,
+  getOrderDetailsById,
+  cancelOrder
 };
