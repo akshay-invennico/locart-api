@@ -77,7 +77,7 @@ const orderSchema = new mongoose.Schema(
     flagged_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     flagged_reason: { type: String },
     refund_amount: { type: Number, default: 0 },
-    refund_reason: String,
+    return_reason: String,
     refunded_at: Date,
 
     deleted_at: Date,

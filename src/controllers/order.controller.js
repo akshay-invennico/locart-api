@@ -974,7 +974,6 @@ const cancelOrder = async (req, res) => {
 
     if (refundData) {
       order.refund_amount = order.total_amount;
-      order.refund_reason = order.cancellation_reason;
       order.refunded_at = new Date();
     }
 
@@ -1000,6 +999,42 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+const returnOrders = async (req, res) => {
+  try {
+    let { order_ids, reason } = req.body;
+
+    if (!order_ids || !Array.isArray(order_ids) || order_ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Order ids must be an array with at least one ID",
+      });
+    }
+
+    const result = await Order.updateMany(
+      { _id: { $in: order_ids }, user_id: req.user.id },
+      {
+        $set: {
+          order_status: "returned",
+          return_reason: reason || null,
+          refunded_at: new Date(),
+        },
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: "Orders marked as returned successfully",
+      updated: result.modifiedCount,
+    });
+
+  } catch (err) {
+    console.error("Return error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
 
 module.exports = {
   createShopOrder,
@@ -1013,5 +1048,6 @@ module.exports = {
   verifyPayment,
   getAllOrdersDetails,
   getOrderDetailsById,
-  cancelOrder
+  cancelOrder,
+  returnOrders
 };
