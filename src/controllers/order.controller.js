@@ -652,6 +652,7 @@ const createCheckoutSession = async (order, req) => {
           },
           unit_amount: Math.round(order.tax_amount * 100),
         },
+        quantity: 1,
       });
     }
 
@@ -664,6 +665,7 @@ const createCheckoutSession = async (order, req) => {
           },
           unit_amount: Math.round(order.shipping_amount * 100),
         },
+        quantity: 1,
       });
     }
 
