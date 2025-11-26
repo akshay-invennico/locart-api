@@ -88,18 +88,29 @@ router.post(
           return;
         }
 
-        await Booking.findByIdAndUpdate(bookingId, {
-          payment_status: "paid",
-          booking_status: "upcoming",
-          stripe_payment_intent: paymentIntent.id,
-        });
+        const booking = await Booking.findByIdAndUpdate(
+          bookingId,
+          {
+            payment_status: "paid",
+            booking_status: "upcoming",
+            stripe_payment_intent: paymentIntent.id,
+          },
+          { new: true }
+        );
 
         console.log("Booking marked as Paid:", bookingId);
+
+        await Notification.create({
+          user_id: booking.user_id,
+          title: "Booking Confirmed",
+          message: `Your booking (${booking.booking_number}) has been successfully confirmed 🎉`,
+          type: "booking",
+        });
       }
 
       if (event.type === "payment_intent.payment_failed") {
         const paymentIntent = event.data.object;
-        const bookingId = paymentIntent.metadata.bookingId; 
+        const bookingId = paymentIntent.metadata.bookingId;
 
         await Booking.findByIdAndUpdate(bookingId, {
           payment_status: "failed",
