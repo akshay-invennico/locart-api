@@ -21,6 +21,9 @@ router
   )
   .get(authMiddleware(["merchant", "customer", "loctitian"]), getProducts);
 
+router.patch("/product/bulk-status", updateProductStatus);
+router.delete("/product/bulk-delete", bulkDeleteProducts);
+
 router
   .route("/product/:id")
   .get(authMiddleware(["merchant", "customer", "loctitian"]), getProductById)
