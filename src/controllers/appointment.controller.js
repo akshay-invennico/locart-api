@@ -6,6 +6,7 @@ const Stylist = require("../models/stylists.model");
 const Booking = require("../models/booking.model");
 const BookedService = require("../models/booked_service.model");
 const Transaction = require("../models/transation.model");
+const Notification = require("../models/notification.model")
 const stripe = require("../utils/stripe");
 const { createEvents } = require("ics");
 
@@ -641,6 +642,12 @@ const updateBooking = async (req, res) => {
     if (payment_status) booking.payment_status = payment_status.toLowerCase();
 
     await booking.save({ session });
+    await Notification.create({
+      user_id: booking.user_id,
+      title: "Booking Updated",
+      message: `Your booking (${booking.booking_number}) has been updated!!`,
+      type: "booking",
+    });
 
     await session.commitTransaction();
 
@@ -1236,6 +1243,13 @@ const cancelBooking = async (req, res) => {
     booking.cancellation_reason = reason || "Not specified";
     booking.cancelled_by = req.user.id;
     await booking.save();
+
+    await Notification.create({
+      user_id: req.user.id,
+      title: "Booking Cancelled",
+      message: `Your booking (${booking.booking_number}) has been cancelled!`,
+      type: "booking",
+    });
 
     return res.status(200).json({
       success: true,

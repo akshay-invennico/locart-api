@@ -2,6 +2,8 @@ const Product = require("../models/product.model");
 const Merchant = require("../models/merchant.model");
 const Salon = require("../models/salons.model");
 const { uploadMultipleToS3, deleteFromS3 } = require("../services/awsS3");
+const User = require("../models/user.model");
+const Notification = require("../models/notification.model")
 
 //@desc    Create a new product (merchant only)
 //@route   POST /api/product
@@ -92,6 +94,16 @@ const createProduct = async (req, res) => {
       images: product.images,
       featured_image: product.featured_image,
     };
+
+    const users = await User.find({}, "_id");
+    const products = users.map(u => ({
+      user_id: u._id,
+      title: "New Product Arrived",
+      message: `A new product has been added! 🛍️ Check it out now in the Locart Studio product list.`,
+      type: "product",
+    }));
+
+    Notification.insertMany(products);
 
     return res.status(201).json({
       success: true,

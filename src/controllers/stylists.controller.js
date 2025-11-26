@@ -5,6 +5,7 @@ const User = require("../models/user.model");
 const Merchant = require("../models/merchant.model");
 const Salon = require("../models/salons.model");
 const Booking = require("../models/booking.model");
+const Notification = require("../models/notification.model");
 const moment = require("moment");
 const sendEmail = require("../utils/sendEmail");
 const bcrypt = require("bcrypt")
@@ -118,6 +119,16 @@ const createStylist = async (req, res) => {
       text: `You can login with this ${password} to your account`,
     });
 
+    const users = await User.find({}, "_id");
+    const notifications = users.map(u => ({
+      user_id: u._id,
+      title: "New Stylist Joined",
+      message: `Welcome Stylist ${user.name} 🌟 – now available at Locart Studio`,
+      type: "stylish",
+    }));
+
+    Notification.insertMany(notifications);
+  
     return res.status(201).json({
       success: true,
       message: "Stylist created successfully",

@@ -3,14 +3,14 @@ require("express-async-errors");
 const helmet = require("helmet");
 const { swaggerUi, swaggerDocument } = require("./swagger");
 
-// 🛡️ Security middlewares
+// security middlewares
 const errorMiddleware = require("./middlewares/error.middleware");
 const loggingMiddleware = require("./middlewares/loggingMiddleware");
 const logger = require("./utils/logger");
 const rateLimiter = require("./middlewares/rateLimiter");
 const cors = require('cors');
 
-// 🚏 Routes Imports
+// routes
 const roleRoutes = require("./api/v1/routes/role.routes");
 const adminRoutes = require("./api/v1/routes/admin.routes");
 const authRoutes = require("./api/v1/routes/auth.routes");
@@ -29,14 +29,12 @@ const cartRoute = require("./api/v1/routes/cart.routes")
 const reviewRoute = require("./api/v1/routes/review.routes")
 const ticketRoute = require("./api/v1/routes/ticket.routes")
 const albumRoute = require("./api/v1/routes/album.routes")
+const notificationRoute = require("./api/v1/routes/notification.routes");
 
-// 🏃 App initialization
 const app = express();
-
-// Security middlewares
 app.use(helmet());
 
-// webhook 
+// webhook
 app.use("/api/v1/payments", require("./api/v1/routes/payment.routes"));
 
 app.use(express.json());
@@ -46,12 +44,9 @@ app.use(cors({
   origin: ["http://localhost:3000", "http://127.0.0.1:3000", "https://locart.vercel.app"],
   credentials: true,
 }));
-
-
-// Custom logging (instead of morgan)
 app.use(loggingMiddleware);
 
-// Routes
+// routes
 app.use("/api/v1/roles", roleRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/auth", authRoutes);
@@ -67,13 +62,12 @@ app.use("/api/v1/cart", cartRoute);
 app.use("/api/v1/review", reviewRoute);
 app.use("/api/v1/support", ticketRoute);
 app.use("/api/v1/album", albumRoute);
+app.use("/api/v1/notification", notificationRoute)
 
 app.get("/", (req, res) => {
-  logger.info("⛑️ Health check endpoint hit for Locart API");
+  logger.info("Locart server is up and running");
   res.json({ status: "ok" });
 });
 
-// Error handler (last)
 app.use(errorMiddleware);
-
 module.exports = app;
