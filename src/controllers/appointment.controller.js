@@ -1176,7 +1176,7 @@ const getBookingSummary = async (req, res) => {
         },
         status: booking.booking_status,
         stripe_session_id: booking.stripe_session_id,
-        created_at: booking.createdAt,
+        created_at: booking.created_at,
       },
     });
 
