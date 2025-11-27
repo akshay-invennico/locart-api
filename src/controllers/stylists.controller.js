@@ -9,6 +9,11 @@ const Notification = require("../models/notification.model");
 const moment = require("moment");
 const sendEmail = require("../utils/sendEmail");
 const bcrypt = require("bcrypt")
+const crypto = require("crypto")
+
+const generateRandomPassword = () => {
+  return crypto.randomBytes(8).toString("hex");
+};
 
 // @desc Create stylist
 // @route POST /api/v1/store/stylists
@@ -26,11 +31,11 @@ const createStylist = async (req, res) => {
       workingHours,
       experience,
       status,
-      password,
       about
     } = req.body;
 
     const profilePhoto = req.file ? req.file.path : null;
+    const password = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const merchantUserId = req.user.id;
