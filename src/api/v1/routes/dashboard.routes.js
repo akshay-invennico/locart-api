@@ -6,6 +6,7 @@ const {
   getTopStylists,
   getTopSellingProducts,
   getRecentActivity,
+  universalSearch,
 } = require("../../../controllers/dashboard.controller");
 const authMiddleware = require("../../../middlewares/auth.middleware");
 const router = express.Router();
@@ -40,4 +41,6 @@ router.get(
   authMiddleware(["merchant", "admin"]),
   getRecentActivity
 );
+
+router.get('/search', authMiddleware(["merchant", "admin", "customer"]), universalSearch)
 module.exports = router;

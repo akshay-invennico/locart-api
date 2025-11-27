@@ -6,6 +6,7 @@ const Product = require("../models/product.model");
 const Role = require("../models/role.model");
 const Stylist = require("../models/stylists.model");
 const User = require("../models/user.model");
+const Service = require("../models/service.model");
 
 // @desc Get dashboard summary
 // @route GET /api/v1/summary
@@ -567,6 +568,74 @@ const getRecentActivity = async (req, res) => {
   }
 };
 
+const universalSearch = async (req, res) => {
+  try {
+    const query = req.query.query?.trim();
+    if (!query || query.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Query is required",
+      });
+    }
+
+    const searchRegex = new RegExp(query, "i");
+
+    const productResults = await Product.find({
+      name: searchRegex,
+      deleted_at: null,
+      status: "active",
+    })
+      .select("name featured_image unit_price currency")
+      .limit(10);
+
+    const serviceResults = await Service.find({
+      name: searchRegex,
+      deleted_at: null,
+      status: "active",
+    })
+      .select("name icon base_price duration")
+      .limit(10);
+
+    const stylists = await Stylist.find({
+      deleted_at: null,
+      status: "active",
+    }).populate({
+      path: "user_id",
+      match: { name: searchRegex },
+      select: "name avatar",
+    });
+
+    const stylistResults = stylists
+      .filter((s) => s.user_id)
+      .map((s) => ({
+        _id: s._id,
+        name: s.user_id.name,
+        avatar: s.user_id.avatar,
+        ratings: s.ratings,
+        reviews_count: s.reviews_count,
+      }));
+
+    const response = [
+      ...stylistResults.map((item) => ({ type: "stylist", data: item })),
+      ...serviceResults.map((item) => ({ type: "service", data: item })),
+      ...productResults.map((item) => ({ type: "product", data: item })),
+    ];
+
+    return res.status(200).json({
+      success: true,
+      count: response.length,
+      data: response,
+    });
+  } catch (error) {
+    console.error("Search Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 // Helper function to convert date to "time ago"
 function timeAgo(date) {
   const now = new Date();
@@ -589,4 +658,5 @@ module.exports = {
   getTopStylists,
   getTopSellingProducts,
   getRecentActivity,
+  universalSearch
 };
