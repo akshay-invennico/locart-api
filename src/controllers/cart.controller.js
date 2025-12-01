@@ -53,15 +53,39 @@ const getCart = async (req, res) => {
     const user_id = req.user.id;
 
     const items = await Cart.find({ user_id })
-      .populate("product_id", "name images unit_price")
-      .populate("service_id", "name duration price")
+      .populate("product_id", "name images featured_image unit_price")
+      .populate("service_id", "name icon duration base_price");
 
-    const subtotal = items.reduce((sum, i) => sum + i.total_price, 0);
+    const formattedItems = items.map(item => {
+      return {
+        ...item._doc,
+        image:
+          item.item_type === "product"
+            ? item.product_id?.featured_image ||
+              item.product_id?.images?.[0] ||
+              null
+            : item.item_type === "service"
+            ? item.service_id?.icon || null
+            : null
+      };
+    });
+
+    const product_subtotal = formattedItems
+      .filter(i => i.item_type === "product")
+      .reduce((sum, i) => sum + i.total_price, 0);
+
+    const service_subtotal = formattedItems
+      .filter(i => i.item_type === "service")
+      .reduce((sum, i) => sum + i.total_price, 0);
+
+    const subtotal = product_subtotal + service_subtotal;
 
     res.json({
       success: true,
-      items,
-      subtotal,
+      items: formattedItems,
+      product_subtotal,
+      service_subtotal,
+      subtotal
     });
 
   } catch (error) {
