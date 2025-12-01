@@ -11,22 +11,22 @@ const {
 const authMiddleware = require("../../../middlewares/auth.middleware");
 const router = express.Router();
 
-router.get("/summary", authMiddleware(["merchant", "admin"]), getSummary);
+router.get("/summary", authMiddleware(["merchant", "admin", "loctitian", "customer"]), getSummary);
 router.get(
   "/booking-overview",
-  authMiddleware(["merchant", "admin"]),
+  authMiddleware(["merchant", "admin", "loctitian"]),
   getBookingOverview
 );
 
 router.get(
   "/today-appointments",
-  authMiddleware(["merchant", "admin"]),
+  authMiddleware(["merchant", "admin", "loctitian"]),
   getTodaysAppointments
 );
 
 router.get(
   "/top-stylists",
-  authMiddleware(["merchant", "admin"]),
+  authMiddleware(["merchant", "admin", "loctitian"]),
   getTopStylists
 );
 

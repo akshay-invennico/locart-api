@@ -13,14 +13,82 @@ const Service = require("../models/service.model");
 // @access Merchant/Admin
 const getSummary = async (req, res) => {
   try {
-    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const roles = req.user.roles.map((r) => r.role_name);
+    const userId = req.user.id;
 
+    if (roles.includes("loctitian")) {
+      return await stylistSummary(req, res, userId);
+    }
+
+    if (roles.includes("admin")) {
+      return await adminSummary(req, res);
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: "Unauthorized role",
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const stylistSummary = async (req, res, userId) => {
+  try {
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+    const todaysAppointments = await BookedService.countDocuments({
+      stylist_id: userId,
+      created_at: { $gte: startOfDay, $lte: endOfDay },
+      deleted_at: null,
+    });
+
+    const upcomingAppointments = await BookedService.countDocuments({
+      stylist_id: userId,
+      booking_date: { $gt: new Date() },
+      deleted_at: null,
+    });
+
+    const totalAppointments = await BookedService.countDocuments({
+      stylist_id: userId,
+      deleted_at: null,
+    });
+
+    return res.status(200).json({
+      success: true,
+      role: "stylist",
+      summary: {
+        todaysAppointments,
+        upcomingAppointments,
+        totalAppointments,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching stylist summary",
+      error: error.message,
+    });
+  }
+};
+
+
+const adminSummary = async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
     const startOfYear = new Date(year, 0, 1, 0, 0, 0, 0);
     const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
 
-    // 1️⃣ Total new clients this month
     const customerRole = await Role.findOne({ role_name: "customer" });
     let monthlyClients = Array(12).fill(0);
+
     if (customerRole) {
       const clientsAgg = await User.aggregate([
         {
@@ -29,22 +97,15 @@ const getSummary = async (req, res) => {
             created_at: { $gte: startOfYear, $lte: endOfYear },
           },
         },
-        {
-          $group: {
-            _id: { $month: "$created_at" },
-            count: { $sum: 1 },
-          },
-        },
+        { $group: { _id: { $month: "$created_at" }, count: { $sum: 1 } } },
       ]);
 
-      clientsAgg.forEach((item) => {
-        monthlyClients[item._id - 1] = item.count;
-      });
+      clientsAgg.forEach((i) => (monthlyClients[i._id - 1] = i.count));
     }
 
-    // 2️⃣ Total new stylists this month
-    const stylistRole = await Role.findOne({ role_name: "stylist" });
+    const stylistRole = await Role.findOne({ role_name: "loctitian" });
     let monthlyStylists = Array(12).fill(0);
+
     if (stylistRole) {
       const stylistsAgg = await User.aggregate([
         {
@@ -53,20 +114,12 @@ const getSummary = async (req, res) => {
             created_at: { $gte: startOfYear, $lte: endOfYear },
           },
         },
-        {
-          $group: {
-            _id: { $month: "$created_at" },
-            count: { $sum: 1 },
-          },
-        },
+        { $group: { _id: { $month: "$created_at" }, count: { $sum: 1 } } },
       ]);
 
-      stylistsAgg.forEach((item) => {
-        monthlyStylists[item._id - 1] = item.count;
-      });
+      stylistsAgg.forEach((i) => (monthlyStylists[i._id - 1] = i.count));
     }
 
-    // 3️⃣ Today's Appointments
     let monthlyBookingRevenue = Array(12).fill(0);
     const bookingRevenueAgg = await BookedService.aggregate([
       {
@@ -75,18 +128,10 @@ const getSummary = async (req, res) => {
           deleted_at: null,
         },
       },
-      {
-        $group: {
-          _id: { $month: "$created_at" },
-          total: { $sum: "$total" },
-        },
-      },
+      { $group: { _id: { $month: "$created_at" }, total: { $sum: "$total" } } },
     ]);
-    bookingRevenueAgg.forEach((item) => {
-      monthlyBookingRevenue[item._id - 1] = item.total;
-    });
+    bookingRevenueAgg.forEach((i) => (monthlyBookingRevenue[i._id - 1] = i.total));
 
-    // 4️⃣ Booking Revenue (this month)
     let monthlyProductRevenue = Array(12).fill(0);
     const productRevenueAgg = await Order.aggregate([
       {
@@ -96,35 +141,24 @@ const getSummary = async (req, res) => {
           deleted_at: null,
         },
       },
-      {
-        $group: {
-          _id: { $month: "$created_at" },
-          total: { $sum: "$total_amount" },
-        },
-      },
+      { $group: { _id: { $month: "$created_at" }, total: { $sum: "$total_amount" } } },
     ]);
-    productRevenueAgg.forEach((item) => {
-      monthlyProductRevenue[item._id - 1] = item.total;
-    });
+    productRevenueAgg.forEach((i) => (monthlyProductRevenue[i._id - 1] = i.total));
 
-    // 5️⃣ Today’s Appointments
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
     const todaysAppointments = await BookedService.countDocuments({
       created_at: { $gte: startOfDay, $lte: endOfDay },
       deleted_at: null,
     });
 
-    // 🧾 Prepare month names
-    const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ];
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-    // ✅ Response
     return res.status(200).json({
       success: true,
+      role: "admin",
       year,
       chartData: monthNames.map((month, index) => ({
         month,
@@ -142,29 +176,26 @@ const getSummary = async (req, res) => {
         {
           key: "totalClients",
           value: monthlyClients.reduce((a, b) => a + b, 0),
-          message: `${monthlyClients.reduce((a, b) => a + b, 0)} New Clients this year`,
         },
         {
           key: "activeStylists",
           value: monthlyStylists.reduce((a, b) => a + b, 0),
-          message: `${monthlyStylists.reduce((a, b) => a + b, 0)} New Stylists this year`,
         },
         {
           key: "bookingRevenue",
           value: monthlyBookingRevenue.reduce((a, b) => a + b, 0),
-          message: `+$${monthlyBookingRevenue.reduce((a, b) => a + b, 0)} Earned this year`,
         },
         {
           key: "productRevenue",
           value: monthlyProductRevenue.reduce((a, b) => a + b, 0),
-          message: `+$${monthlyProductRevenue.reduce((a, b) => a + b, 0)} Earned this year`,
         },
       ],
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: "Error fetching admin summary",
       error: error.message,
     });
   }
@@ -176,6 +207,9 @@ const getSummary = async (req, res) => {
 const getBookingOverview = async (req, res) => {
   try {
     const { filter = "year", year, month } = req.query;
+
+    const roleNames = req.user.roles.map((role) => role.role_name);
+    const userId = req.user.id;
 
     const now = new Date();
     const selectedYear = year ? parseInt(year) : now.getFullYear();
@@ -195,7 +229,6 @@ const getBookingOverview = async (req, res) => {
       }
 
       case "week": {
-        // take week of "now" (no year param here unless you want custom week filter)
         const day = now.getDay();
         startDate = new Date(now);
         startDate.setDate(now.getDate() - day);
@@ -272,12 +305,34 @@ const getBookingOverview = async (req, res) => {
       }
     }
 
+    const matchQuery = {
+      service_date: { $gte: startDate, $lt: endDate },
+      deleted_at: null,
+    };
+
+    if (roleNames.includes("loctitian")) {
+      const stylist = await Stylist.findOne({ user_id: userId });
+
+      if (!stylist) {
+        return res.status(404).json({
+          success: false,
+          message: "Stylist profile not found for this user",
+        });
+      }
+      
+      matchQuery.stylist_id = stylist.user_id;
+    } else if (roleNames.includes("merchant") || roleNames.includes("admin")) {
+      // all bookings
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Invalid role for this endpoint",
+      });
+    }
+
     const data = await Booking.aggregate([
       {
-        $match: {
-          service_date: { $gte: startDate, $lt: endDate },
-          deleted_at: null,
-        },
+        $match: matchQuery,
       },
       {
         $group: {
@@ -303,6 +358,9 @@ const getBookingOverview = async (req, res) => {
 // @access Merchant/Admin
 const getTodaysAppointments = async (req, res) => {
   try {
+    const roleNames = req.user.roles.map((role) => role.role_name);
+    const userId = req.user.id;
+
     const now = new Date();
     const startOfDay = new Date(
       now.getFullYear(),
@@ -315,12 +373,34 @@ const getTodaysAppointments = async (req, res) => {
       now.getDate() + 1
     );
 
+    const matchQuery = {
+      service_date: { $gte: startOfDay, $lt: endOfDay },
+      deleted_at: null,
+    };
+
+    if (roleNames.includes("loctitian")) {
+      const stylist = await Stylist.findOne({ user_id: userId });
+      
+      if (!stylist) {
+        return res.status(404).json({
+          success: false,
+          message: "Stylist profile not found for this user",
+        });
+      }
+      
+      matchQuery.stylist_id = stylist.user_id;
+    } else if (roleNames.includes("merchant") || roleNames.includes("admin")) {
+      // all bookings
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Invalid role for this endpoint",
+      });
+    }
+
     const data = await Booking.aggregate([
       {
-        $match: {
-          service_date: { $gte: startOfDay, $lt: endOfDay },
-          deleted_at: null,
-        },
+        $match: matchQuery,
       },
       {
         $group: {
@@ -337,7 +417,9 @@ const getTodaysAppointments = async (req, res) => {
       if (
         item._id === "pending" ||
         item._id === "confirmed" ||
-        item._id === "processing"
+        item._id === "processing" ||
+        item._id === "upcoming" ||
+        item._id === "ongoing"
       ) {
         pending += item.count;
       }
