@@ -306,45 +306,64 @@ const getAllBookings = async (req, res) => {
     } = req.query;
 
     const { stylist_ids } = req.body;
+    const roleNames = req.user.roles.map((role) => role.role_name);
+    const userId = req.user.id;
 
     page = parseInt(page);
     per_page = parseInt(per_page);
 
     const query = {};
 
-    // 1️⃣ Status filter (multi-select)
+    if (roleNames.includes("merchant") || roleNames.includes("admin")) {
+    } else if (roleNames.includes("customer")) {
+      query.user_id = userId;
+    } else if (roleNames.includes("loctitian")) {
+      const stylist = await Stylist.findOne({ user_id: userId });
+
+      if (!stylist) {
+        return res.status(404).json({
+          success: false,
+          message: "Stylist profile not found for this user",
+        });
+      }
+
+      query.stylist_id = stylist.user_id;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: No valid role assigned",
+      });
+    }
+
     if (status) {
       let statusArray = Array.isArray(status) ? status : [status];
       query.booking_status = { $in: statusArray.map((s) => s.toLowerCase()) };
     }
 
-    // 2️⃣ Date range
     if (start_date || end_date) {
       query.service_date = {};
       if (start_date) query.service_date.$gte = new Date(start_date);
       if (end_date) query.service_date.$lte = new Date(end_date);
     }
 
-    // 3️⃣ Amount range
     if (min_amount || max_amount) {
       query.grand_total = {};
       if (min_amount) query.grand_total.$gte = Number(min_amount);
       if (max_amount) query.grand_total.$lte = Number(max_amount);
     }
 
-    // 4️⃣ Time range
     if (start_time || end_time) {
       query.service_start_time = {};
       if (start_time) query.service_start_time.$gte = start_time;
       if (end_time) query.service_start_time.$lte = end_time;
     }
 
-    // 5️⃣ Stylist filter
     if (stylist_ids && Array.isArray(stylist_ids) && stylist_ids.length > 0) {
-      query.stylist_id = { $in: stylist_ids };
+      if (roleNames.includes("merchant") || roleNames.includes("admin")) {
+        query.stylist_id = { $in: stylist_ids };
+      }
     }
 
-    // 6️⃣ Service filter (via BookedService)
     let bookingIdsFromServices = null;
     if (service_ids && service_ids.length > 0) {
       const serviceArr = Array.isArray(service_ids) ? service_ids : [service_ids];
@@ -352,10 +371,17 @@ const getAllBookings = async (req, res) => {
         service_id: { $in: serviceArr },
       }).select("booking_id");
       bookingIdsFromServices = bookedServices.map((bs) => bs.booking_id);
-      query._id = { $in: bookingIdsFromServices };
+
+      if (query._id) {
+        const existingIds = query._id.$in.map(id => id.toString());
+        const serviceIds = bookingIdsFromServices.map(id => id.toString());
+        const intersectionIds = existingIds.filter(id => serviceIds.includes(id));
+        query._id = { $in: intersectionIds };
+      } else {
+        query._id = { $in: bookingIdsFromServices };
+      }
     }
 
-    // 7️⃣ Pagination + Populate
     const bookings = await Booking.find(query)
       .populate("user_id", "name email_address phone_number")
       .populate({
@@ -374,8 +400,6 @@ const getAllBookings = async (req, res) => {
       .lean();
 
     const total = await Booking.countDocuments(query);
-
-    // 8️⃣ Fetch all booked services for these bookings in one query
     const bookingIds = bookings.map((b) => b._id);
     const bookedServices = await BookedService.find({
       booking_id: { $in: bookingIds },
@@ -383,7 +407,6 @@ const getAllBookings = async (req, res) => {
       .populate("service_id")
       .lean();
 
-    // 9️⃣ Group booked services by booking_id
     const bookedServicesMap = bookedServices.reduce((acc, bs) => {
       const bid = bs.booking_id.toString();
       if (!acc[bid]) acc[bid] = [];
@@ -391,19 +414,18 @@ const getAllBookings = async (req, res) => {
       return acc;
     }, {});
 
-    // 🔟 Format response
     const data = bookings.map((booking) => {
       const stylistUser = booking.stylist_id?.user_id;
       const stylist = booking.stylist_id
         ? {
-            _id: booking.stylist_id._id,
-            name: stylistUser?.name || null,
-            email: stylistUser?.email_address || null,
-            phone: stylistUser?.phone_number || null,
-            experience: booking.stylist_id.experience || null,
-            specialization: booking.stylist_id.specialization || null,
-            salon: booking.stylist_id.salon_id || null,
-          }
+          _id: booking.stylist_id._id,
+          name: stylistUser?.name || null,
+          email: stylistUser?.email_address || null,
+          phone: stylistUser?.phone_number || null,
+          experience: booking.stylist_id.experience || null,
+          specialization: booking.stylist_id.specialization || null,
+          salon: booking.stylist_id.salon_id || null,
+        }
         : null;
 
       return {
@@ -425,10 +447,10 @@ const getAllBookings = async (req, res) => {
         booking_mode: booking.booking_mode,
         saloon: booking.saloon_id
           ? {
-              id: booking.saloon_id._id,
-              name: booking.saloon_id.name,
-              address: booking.saloon_id.address,
-            }
+            id: booking.saloon_id._id,
+            name: booking.saloon_id.name,
+            address: booking.saloon_id.address,
+          }
           : null,
       };
     });
@@ -521,19 +543,19 @@ const getBookingById = async (req, res) => {
 
       client: booking.user_id
         ? {
-            name: booking.user_id.name,
-            email: booking.user_id.email_address,
-            phone: booking.user_id.phone_number,
-          }
+          name: booking.user_id.name,
+          email: booking.user_id.email_address,
+          phone: booking.user_id.phone_number,
+        }
         : null,
 
       stylist: booking.stylist_id
         ? {
-            id: booking.stylist_id._id,
-            name: booking.stylist_id.user_id?.name,
-            email: booking.stylist_id.user_id?.email_address,
-            phone: booking.stylist_id.user_id?.phone_number,
-          }
+          id: booking.stylist_id._id,
+          name: booking.stylist_id.user_id?.name,
+          email: booking.stylist_id.user_id?.email_address,
+          phone: booking.stylist_id.user_id?.phone_number,
+        }
         : null,
 
       services: bookedServices.map((bs) => ({
@@ -546,16 +568,16 @@ const getBookingById = async (req, res) => {
 
       payment: transaction
         ? {
-            payment_status: transaction.payment_status,
-            payment_method: transaction.payment_method,
-            amount_paid: paidAmount,
-            transaction_id: transaction.transaction_id || null,
-            remarks: transaction.remarks || null,
-          }
+          payment_status: transaction.payment_status,
+          payment_method: transaction.payment_method,
+          amount_paid: paidAmount,
+          transaction_id: transaction.transaction_id || null,
+          remarks: transaction.remarks || null,
+        }
         : {
-            payment_status: booking.payment_status,
-            amount_paid: paidAmount,
-          },
+          payment_status: booking.payment_status,
+          amount_paid: paidAmount,
+        },
 
       invoice: {
         service_charges: booking.subtotal,
@@ -612,7 +634,7 @@ const updateBooking = async (req, res) => {
     if (time_slot) {
       const serviceEndTime = new Date(
         new Date(`${booking.service_date.toISOString().split("T")[0]}T${time_slot}:00`).getTime() +
-          booking.total_duration * 60000
+        booking.total_duration * 60000
       );
 
       const overlappingBooking = await Booking.findOne({
@@ -945,8 +967,7 @@ const getRefundSummary = async (req, res) => {
       booking: {
         booking_id: booking._id,
         date_time: new Date(
-          `${booking.service_date.toISOString().split("T")[0]}T${
-            booking.service_start_time
+          `${booking.service_date.toISOString().split("T")[0]}T${booking.service_start_time
           }:00`
         ),
         services: bookedServices
@@ -972,6 +993,82 @@ const getRefundSummary = async (req, res) => {
   }
 };
 
+const checkStylistAvailability = async (
+  stylist_id,
+  service_date,
+  service_start_time,
+  service_end_time
+) => {
+  try {
+    const requestedDate = new Date(service_date);
+    const startOfDay = new Date(requestedDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(requestedDate.setHours(23, 59, 59, 999));
+
+    const existingBookings = await Booking.find({
+      stylist_id: stylist_id,
+      service_date: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+      payment_status: "paid",
+      booking_status: {
+        $nin: ["cancelled"], 
+      },
+    }).select("service_start_time service_end_time booking_number booking_status");
+
+    if (existingBookings.length === 0) {
+      return {
+        available: true,
+        message: "Stylist is available for the requested time slot",
+      };
+    }
+
+    const timeToMinutes = (timeString) => {
+      const [hours, minutes] = timeString.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const requestedStart = timeToMinutes(service_start_time);
+    const requestedEnd = timeToMinutes(service_end_time);
+    const conflicts = [];
+
+    for (const booking of existingBookings) {
+      const existingStart = timeToMinutes(booking.service_start_time);
+      const existingEnd = timeToMinutes(booking.service_end_time);
+      const hasOverlap =
+        requestedStart < existingEnd && requestedEnd > existingStart;
+
+      if (hasOverlap) {
+        conflicts.push({
+          booking_number: booking.booking_number,
+          start_time: booking.service_start_time,
+          end_time: booking.service_end_time,
+          status: booking.booking_status,
+        });
+      }
+    }
+
+    if (conflicts.length > 0) {
+      return {
+        available: false,
+        message: "Stylist is not available for the requested time slot",
+        conflicts: conflicts,
+      };
+    }
+
+    return {
+      available: true,
+      message: "Stylist is available for the requested time slot",
+    };
+  } catch (error) {
+    console.error("Error checking stylist availability:", error);
+    return {
+      available: false,
+      message: "Error checking availability: " + error.message,
+    };
+  }
+};
+
 const createServiceBooking = async (req, res) => {
   try {
     const {
@@ -988,6 +1085,29 @@ const createServiceBooking = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Service not found",
+      });
+    }
+
+    const stylist = await Stylist.findOne({ user_id: stylist_id });
+    if (!stylist) {
+      return res.status(404).json({
+        success: false,
+        message: "Stylist not found",
+      });
+    }
+
+    const availabilityCheck = await checkStylistAvailability(
+      stylist_id,
+      service_date,
+      service_start_time,
+      service_end_time
+    );
+
+    if (!availabilityCheck.available) {
+      return res.status(409).json({
+        success: false,
+        message: availabilityCheck.message,
+        conflicting_bookings: availabilityCheck.conflicts || [],
       });
     }
 
@@ -1021,7 +1141,7 @@ const createServiceBooking = async (req, res) => {
       is_partial_payment: is_partial_payment ? true : false,
       payable_amount,
       partial_percentage: is_partial_payment ? partial_percentage : 0,
-      booking_mode: "online"
+      booking_mode: "online",
     });
 
 
@@ -1142,8 +1262,8 @@ const getBookingSummary = async (req, res) => {
     const bookingId = req.params.id;
 
     const booking = await Booking.findById(bookingId)
-      .populate("stylist_id")           
-      .populate("user_id")              
+      .populate("stylist_id")
+      .populate("user_id")
 
     if (!booking) {
       return res.status(404).json({
@@ -1175,6 +1295,7 @@ const getBookingSummary = async (req, res) => {
           end_time: booking.service_end_time,
         },
         status: booking.booking_status,
+        payment_status: booking.payment_status,
         stripe_session_id: booking.stripe_session_id,
         created_at: booking.created_at,
       },
@@ -1195,7 +1316,7 @@ const cancelBooking = async (req, res) => {
 
     const booking = await Booking.findOne({
       _id: bookingId,
-      user_id: req.user.id, 
+      user_id: req.user.id,
     });
 
     if (!booking) {
@@ -1226,7 +1347,7 @@ const cancelBooking = async (req, res) => {
         message: "Payment not completed, cannot refund.",
       });
     }
-    
+
     const refundAmount = Math.round(booking.payable_amount * 100);
     const refund = await stripe.refunds.create({
       payment_intent: booking.stripe_payment_intent,

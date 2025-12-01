@@ -8,7 +8,6 @@ const Booking = require("../models/booking.model");
 const Notification = require("../models/notification.model");
 const moment = require("moment");
 const sendEmail = require("../utils/sendEmail");
-const bcrypt = require("bcrypt")
 const crypto = require("crypto")
 
 const generateRandomPassword = () => {
@@ -36,7 +35,6 @@ const createStylist = async (req, res) => {
 
     const profilePhoto = req.file ? req.file.path : null;
     const password = generateRandomPassword();
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     const merchantUserId = req.user.id;
     const merchantRole = await Role.findOne({
@@ -81,10 +79,11 @@ const createStylist = async (req, res) => {
     const user = await User.create({
       name: fullName,
       email_address: email,
-      password: hashedPassword,
-      dialing_code,
+      password: password,
+      dialing_code: dialing_code || null,
       phone_number: phoneNumber,
       profile_photo: profilePhoto,
+      isVerified: true,
     });
 
     const stylist = await Stylist.create({

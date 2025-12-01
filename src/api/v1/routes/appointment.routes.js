@@ -20,7 +20,7 @@ const {
 router
   .route("/")
   .post(authMiddleware(["merchant"]), createBooking)
-  .get(authMiddleware(["merchant"]), getAllBookings);
+  .get(authMiddleware(["merchant", "customer", "loctitian"]), getAllBookings);
 
 
 router.route("/book").post(authMiddleware(["merchant", "customer", "loctitian"]), createServiceBooking)
