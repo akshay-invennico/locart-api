@@ -19,7 +19,7 @@ const {
 
 router
   .route("/")
-  .post(authMiddleware(["merchant"]), createBooking)
+  .post(authMiddleware(["merchant", "customer", "loctitian"]), createBooking)
   .get(authMiddleware(["merchant", "customer", "loctitian"]), getAllBookings);
 
 
@@ -35,16 +35,16 @@ router
 
 router
   .route("/:id")
-  .get(authMiddleware(["merchant"]), getBookingById)
-  .patch(authMiddleware(["merchant"]), updateBooking);
+  .get(authMiddleware(["merchant", "customer", "loctitian"]), getBookingById)
+  .patch(authMiddleware(["merchant", "customer", "loctitian"]), updateBooking);
 
 router
   .route("/bulk/status")
-  .patch(authMiddleware(["merchant"]), updateBookingStatusBulk);
+  .patch(authMiddleware(["merchant", "customer", "loctitian"]), updateBookingStatusBulk);
 
 router
   .route("/:id/refund")
-  .post(authMiddleware(["merchant"]), refundBooking)
-  .get(authMiddleware(["merchant"]), getRefundSummary);
+  .post(authMiddleware(["merchant", "customer", "loctitian"]), refundBooking)
+  .get(authMiddleware(["merchant", "customer", "loctitian"]), getRefundSummary);
 
 module.exports = router;
