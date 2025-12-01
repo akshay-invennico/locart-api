@@ -81,9 +81,57 @@ const deleteCart = async (req, res) => {
   }
 };
 
+const updateCart = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { quantity } = req.body;
+    const cart_id = req.params.id;
+
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({ success: false, message: "Quantity must be at least 1" });
+    }
+
+    const cartItem = await Cart.findOne({ _id: cart_id, user_id });
+
+    if (!cartItem) {
+      return res.status(404).json({ success: false, message: "Cart item not found" });
+    }
+
+    let price = cartItem.price_at_time;
+
+    if (cartItem.item_type === "product") {
+      const product = await Product.findById(cartItem.product_id);
+      if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+      price = parseFloat(product.unit_price);
+    }
+
+    if (cartItem.item_type === "service") {
+      return res.status(400).json({
+        success: false,
+        message: "Service quantity cannot be changed",
+      });
+    }
+
+    cartItem.quantity = quantity;
+    cartItem.price_at_time = price;
+    cartItem.total_price = price * quantity;
+
+    await cartItem.save();
+
+    res.json({
+      success: true,
+      message: "Cart updated successfully",
+      data: cartItem
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 module.exports = {
   createCart,
   getCart,
-  deleteCart
+  deleteCart,
+  updateCart
 };

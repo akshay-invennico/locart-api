@@ -4,7 +4,8 @@ const authMiddleware = require("../../../middlewares/auth.middleware");
 const {
   createCart,
   getCart,
-  deleteCart
+  deleteCart,
+  updateCart
 } = require("../../../controllers/cart.controller");
 
 const router = express.Router();
@@ -13,6 +14,12 @@ router.post(
   "/",
   authMiddleware(["customer", "merchant", "loctitian"]),
   createCart
+);
+
+router.patch(
+  "/:id",
+  authMiddleware(["customer", "merchant", "loctitian"]),
+  updateCart
 );
 
 router.get(
