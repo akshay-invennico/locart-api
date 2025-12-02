@@ -13,6 +13,7 @@ const {
   editHoliday,
   deleteHoliday,
   addAmenitiesToSalon,
+  getSalon,
 } = require("../../../controllers/salons.controller");
 const upload = require("../../../middlewares/upload.middleware");
 
@@ -32,6 +33,8 @@ router
   .get(authMiddleware(["merchant", "customer", "loctitian"]), getMySalon)
   .post(authMiddleware(["merchant"]), upload.none(), createSalon)
   .patch(authMiddleware(["merchant"]), addAmenitiesToSalon);
+
+router.route("/locart").get(authMiddleware(["merchant", "customer", "loctitian"]), getSalon)
 
 router
   .route("/availability/operating-hours")

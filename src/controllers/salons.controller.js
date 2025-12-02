@@ -132,6 +132,30 @@ const getMySalon = async (req, res) => {
   }
 };
 
+const getSalon = async (req, res) => {
+  try {
+    const salon = await Salon.findOne({});
+
+    if (!salon) {
+      return res.status(404).json({
+        success: false,
+        message: "Salon not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Salon retrieved successfully",
+      data: salon,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Create a new salon (merchant only)
 // @route   PATCH /api/salons/:id
 // @access  Private (merchant role)
@@ -771,4 +795,5 @@ module.exports = {
   editHoliday,
   deleteHoliday,
   addAmenitiesToSalon,
+  getSalon
 };
