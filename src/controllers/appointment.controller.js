@@ -538,6 +538,7 @@ const getBookingById = async (req, res) => {
       booked_on: booking.created_at,
       status: booking.booking_status,
       booking_mode: booking.booking_mode,
+      is_partial_payment: booking.is_partial_payment,
 
       client: booking.user_id
         ? {
