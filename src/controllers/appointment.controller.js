@@ -1088,7 +1088,15 @@ const createServiceBooking = async (req, res) => {
       });
     }
 
-    const stylist = await Stylist.findOne({ user_id: stylist_id });
+    const stylistRecord = await Stylist.findOne({ _id: stylist_id});
+    if (!stylistRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Stylist not found",
+      });
+    }
+
+    const stylist = await Stylist.findOne({ user_id: stylistRecord.user_id });
     if (!stylist) {
       return res.status(404).json({
         success: false,

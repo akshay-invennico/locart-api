@@ -5,7 +5,8 @@ const {
   createCart,
   getCart,
   deleteCart,
-  updateCart
+  updateCart,
+  checkItemInCart
 } = require("../../../controllers/cart.controller");
 
 const router = express.Router();
@@ -26,6 +27,12 @@ router.get(
   "/",
   authMiddleware(["customer", "merchant", "loctitian"]),
   getCart
+);
+
+router.get(
+  "/check",
+  authMiddleware(["customer", "merchant", "loctitian"]),
+  checkItemInCart
 );
 
 router.delete(

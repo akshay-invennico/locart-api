@@ -153,9 +153,69 @@ const updateCart = async (req, res) => {
   }
 };
 
+
+const checkItemInCart = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { item_type, product_id, service_id } = req.query;
+
+    if (!item_type || !["product", "service"].includes(item_type)) {
+      return res.status(400).json({
+        success: false,
+        message: "item_type is required and must be 'product' or 'service'",
+      });
+    }
+
+    if (item_type === "product" && !product_id) {
+      return res.status(400).json({
+        success: false,
+        message: "product_id is required for item_type product",
+      });
+    }
+
+    if (item_type === "service" && !service_id) {
+      return res.status(400).json({
+        success: false,
+        message: "service_id is required for item_type service",
+      });
+    }
+
+    const query = { user_id, item_type };
+
+    if (item_type === "product") query.product_id = product_id;
+    if (item_type === "service") query.service_id = service_id;
+
+    const cartItem = await Cart.findOne(query)
+      .populate("product_id")
+      .populate("service_id");
+
+    if (!cartItem) {
+      return res.json({
+        success: true,
+        exists: false,
+        data: null,
+      });
+    }
+
+    return res.json({
+      success: true,
+      exists: true,
+      data: cartItem, 
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 module.exports = {
   createCart,
   getCart,
   deleteCart,
-  updateCart
+  updateCart,
+  checkItemInCart
 };
