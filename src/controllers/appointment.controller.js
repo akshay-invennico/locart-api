@@ -508,11 +508,9 @@ const getBookingById = async (req, res) => {
     }
 
     // ✅ 2️⃣ Fetch all booked services with service details
-    const bookedServices = await BookedService.find({
-      booking_id: booking._id,
-    })
-      .populate("service_id", "service_name price duration description")
-      .lean();
+    const bookedServices = await BookedService.find({ booking_id: booking._id })
+      .populate("service_id");
+
 
     // ✅ 3️⃣ Fetch associated transaction
     const transaction = await Transaction.findOne({
@@ -558,13 +556,17 @@ const getBookingById = async (req, res) => {
         }
         : null,
 
-      services: bookedServices.map((bs) => ({
-        _id: bs.service_id?._id,
-        name: bs.service_id?.service_name,
-        price: bs.service_id?.price,
-        duration: bs.service_id?.duration,
-        description: bs.service_id?.description || null,
-      })),
+        services: bookedServices.map((bs) => {
+          const s = bs.service_id || {};
+          return {
+            _id: s._id,
+            name: s.name,
+            price: s.base_price,
+            duration: s.duration,
+            description: s.description || null,
+          };
+        }),
+        
 
       payment: transaction
         ? {
@@ -1012,7 +1014,7 @@ const checkStylistAvailability = async (
       },
       payment_status: "paid",
       booking_status: {
-        $nin: ["cancelled"], 
+        $nin: ["cancelled"],
       },
     }).select("service_start_time service_end_time booking_number booking_status");
 
@@ -1088,7 +1090,7 @@ const createServiceBooking = async (req, res) => {
       });
     }
 
-    const stylistRecord = await Stylist.findOne({ _id: stylist_id});
+    const stylistRecord = await Stylist.findOne({ _id: stylist_id });
     if (!stylistRecord) {
       return res.status(404).json({
         success: false,
