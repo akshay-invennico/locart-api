@@ -1,6 +1,6 @@
 const Review = require('../models/review.model');
 const Booking = require('../models/booking.model');
-const { uploadToS3 } = require('../services/awsS3');
+const { uploadMultipleToS3 } = require('../services/awsS3');
 
 
 const createReview = async (req, res) => {
@@ -30,10 +30,19 @@ const createReview = async (req, res) => {
       });
     }
 
-    let imageUrl = null;
-    if (req.file) {
-      const uploaded = await uploadToS3(req.file, "reviews");
-      imageUrl = uploaded.url;
+    let images = [];
+    if (req.files && req.files.length > 0) {
+      try {
+        const uploaded = await uploadMultipleToS3(req.files, "review_image");
+        images = uploaded.map((file) => file.Location || file.url);
+
+      } catch (uploadError) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload images",
+          error: uploadError.message,
+        });
+      }
     }
 
     const newReview = await Review.create({
@@ -43,7 +52,7 @@ const createReview = async (req, res) => {
       review_text: description,
       likes: likes || [],
       booking_id,
-      images: imageUrl ? [imageUrl] : [],
+      images,
     });
 
     return res.status(201).json({

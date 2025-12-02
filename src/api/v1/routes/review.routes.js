@@ -1,6 +1,6 @@
 const express = require("express");
 const authMiddleware = require("../../../middlewares/auth.middleware");
-const { uploadSingle } = require("../../../middlewares/uploadMiddleware");
+const { uploadMultiple } = require("../../../middlewares/uploadMiddleware");
 
 const {
   createReview,
@@ -13,7 +13,7 @@ const router = express.Router();
 router.post(
   "/",
   authMiddleware(["customer", "merchant", "loctitian"]),
-  uploadSingle('review_image'),
+  uploadMultiple("review_image", 10),
   createReview
 );
 
