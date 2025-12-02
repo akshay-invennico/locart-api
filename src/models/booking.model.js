@@ -60,7 +60,7 @@ const bookingSchema = new mongoose.Schema(
         "cancelled",
         "flagged"
       ],
-      default: "upcoming",
+      default: "pending",
     },
 
     service_date: { type: Date, required: true },
