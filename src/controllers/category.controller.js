@@ -91,17 +91,41 @@ const getCategories = async (req, res) => {
       { $match: matchQuery },
       {
         $lookup: {
-          from: "products",
+          from: "services",
           localField: "_id",
           foreignField: "category_id",
+          as: "services",
+        },
+      },
+
+      {
+        $lookup: {
+          from: "products",
+          let: { categoryId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ["$$categoryId", "$category_id"], 
+                },
+              },
+            },
+          ],
           as: "products",
         },
       },
       {
         $addFields: {
-          productsCount: { $size: "$products" },
-        },
+          itemsCount: {
+            $cond: [
+              { $eq: ["$type", "service"] },
+              { $size: "$services" }, 
+              { $size: "$products" }  
+            ]
+          }
+        }
       },
+
       {
         $project: {
           _id: 1,
@@ -117,7 +141,7 @@ const getCategories = async (req, res) => {
           type: 1,
           image: 1,
           order: 1,
-          productsCount: 1,
+          itemsCount: 1,
         },
       },
 
