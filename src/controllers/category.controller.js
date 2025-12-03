@@ -68,7 +68,7 @@ const createCategory = async (req, res) => {
 
 const getCategories = async (req, res) => {
   try {
-    let { page = 1, limit = 20, search = "", status } = req.query;
+    let { page = 1, limit = 20, search = "", status, type } = req.query;
 
     page = parseInt(page);
     limit = parseInt(limit);
@@ -77,6 +77,10 @@ const getCategories = async (req, res) => {
 
     if (status && ["active", "inactive"].includes(status.toLowerCase())) {
       matchQuery.status = status.toLowerCase();
+    }
+
+    if (type && ["product", "service"].includes(type.toLowerCase())) {
+      matchQuery.type = type.toLowerCase();
     }
 
     if (search) {
