@@ -274,10 +274,84 @@ const deleteCategory = async (req, res) => {
   }
 };
 
+const bulkUpdateCategoryStatus = async (req, res) => {
+  try {
+    const { ids, status } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Category IDs are required",
+      });
+    }
+
+    if (!status || !["active", "inactive"].includes(status.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Allowed: active, inactive",
+      });
+    }
+
+    const updateResult = await Category.updateMany(
+      { _id: { $in: ids }, deleted_at: null },
+      { status: status.toLowerCase() }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Categories updated to ${status} successfully`,
+      modified: updateResult.modifiedCount,
+    });
+
+  } catch (error) {
+    console.error("Bulk status update error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
+const bulkDeleteCategories = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Category IDs are required",
+      });
+    }
+
+    const deleted = await Category.deleteMany(
+      { _id: { $in: ids }}
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Categories deleted successfully",
+      modified: deleted.modifiedCount,
+    });
+
+  } catch (error) {
+    console.error("Bulk delete error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   createCategory,
   getCategories,
   getCategoryById,
   updateCategory,
   deleteCategory,
+  bulkUpdateCategoryStatus,
+  bulkDeleteCategories
 };
