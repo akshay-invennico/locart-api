@@ -39,10 +39,7 @@ const createTicket = async (req, res) => {
 
 const getMyTickets = async (req, res) => {
   try {
-    const tickets = await Ticket.find({ user: req.user.id }).sort({
-      createdAt: -1,
-    });
-
+    const tickets = await Ticket.find({ user_id: req.user.id });
     return res.status(200).json({
       success: true,
       tickets,
