@@ -10,6 +10,30 @@ const Notification = require("../models/notification.model")
 const stripe = require("../utils/stripe");
 const { createEvents } = require("ics");
 
+
+function calculateEstimatedTime(start, end) {
+  if (!start || !end) return null;
+
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+
+  const startMinutes = sh * 60 + sm;
+  const endMinutes = eh * 60 + em;
+
+  const diff = endMinutes - startMinutes;
+  if (diff < 0) return null;
+
+  const hours = Math.floor(diff / 60);
+  const minutes = diff % 60;
+
+  let result = "";
+  if (hours > 0) result += `${hours} hr${hours > 1 ? "s" : ""} `;
+  if (minutes > 0) result += `${minutes} mins`;
+
+  return result.trim();
+}
+
+
 // @desc Create booking
 // @route POST /api/v1/appointment
 // @access Merchant
@@ -527,6 +551,11 @@ const getBookingById = async (req, res) => {
         ? totalPayable - loyaltyDiscount
         : totalPayable;
 
+    const estimatedTime = calculateEstimatedTime(
+      booking.service_start_time,
+      booking.service_end_time
+    );
+
     // ✅ 5️⃣ Construct final response object
     const responseData = {
       booking_id: booking._id,
@@ -535,10 +564,14 @@ const getBookingById = async (req, res) => {
         ? booking.service_date.toISOString().split("T")[0]
         : null,
       time: booking.service_start_time,
+      end_time: booking.service_end_time,
+      estimated_time: estimatedTime,
       booked_on: booking.created_at,
       status: booking.booking_status,
       booking_mode: booking.booking_mode,
       is_partial_payment: booking.is_partial_payment,
+      cancellation_reason: booking.cancellation_reason,
+      cancelled_at: booking.cancelled_at,
 
       client: booking.user_id
         ? {
@@ -557,17 +590,17 @@ const getBookingById = async (req, res) => {
         }
         : null,
 
-        services: bookedServices.map((bs) => {
-          const s = bs.service_id || {};
-          return {
-            _id: s._id,
-            name: s.name,
-            price: s.base_price,
-            duration: s.duration,
-            description: s.description || null,
-          };
-        }),
-        
+      services: bookedServices.map((bs) => {
+        const s = bs.service_id || {};
+        return {
+          _id: s._id,
+          name: s.name,
+          price: s.base_price,
+          duration: s.duration,
+          description: s.description || null,
+        };
+      }),
+
 
       payment: transaction
         ? {
