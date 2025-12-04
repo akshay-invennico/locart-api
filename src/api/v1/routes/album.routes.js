@@ -7,12 +7,12 @@ const { createAlbum, getAlbumById, getAllAlbums } = require("../../../controller
 
 router.post(
   "/",
-  authMiddleware(["merchant", "loctitian"]),
+  authMiddleware(["merchant", "loctitian", "customer"]),
   uploadMultiple("photos", 20),
   createAlbum
 );
 
-router.get("/", authMiddleware(["merchant", "loctitian"]), getAllAlbums)
-router.get("/:id", authMiddleware(["merchant", "loctitian"]), getAlbumById)
+router.get("/", authMiddleware(["merchant", "loctitian", "customer"]), getAllAlbums)
+router.get("/:id", authMiddleware(["merchant", "loctitian", "customer"]), getAlbumById)
 
 module.exports = router;
