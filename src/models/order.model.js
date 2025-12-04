@@ -28,6 +28,13 @@ const orderSchema = new mongoose.Schema(
         subtotal: { type: Number, required: true },
         discount: { type: Number, default: 0 },
         image: String,
+        return_status: {
+          type: String,
+          enum: ["none", "pending", "returned"],
+          default: "none"
+        },
+        return_reason: String,
+        return_requested: Date
       },
     ],
 

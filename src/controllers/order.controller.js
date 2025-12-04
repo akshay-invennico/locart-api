@@ -875,7 +875,9 @@ const getOrderDetailsById = async (req, res) => {
                     name: "$$product.name",
                     price: { $toDecimal: "$$product.unit_price" },
                     image: "$$product.featured_image",
-
+                    return_status: "$$item.return_status",
+                    return_requested: "$$item.return_requested",
+                    return_reason: "$$item.return_reason",
                     subtotal: "$$item.subtotal",
                     discount: "$$item.discount"
                   }
@@ -999,32 +1001,51 @@ const cancelOrder = async (req, res) => {
   }
 };
 
-const returnOrders = async (req, res) => {
+const returnItems = async (req, res) => {
   try {
-    let { order_ids, reason } = req.body;
+    let { order_id, items, reason } = req.body;
 
-    if (!order_ids || !Array.isArray(order_ids) || order_ids.length === 0) {
+    if (!order_id || !items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Order ids must be an array with at least one ID",
+        message: "Order ID and items array are required",
       });
     }
 
-    const result = await Order.updateMany(
-      { _id: { $in: order_ids }, user_id: req.user.id },
-      {
-        $set: {
-          order_status: "returned",
-          return_reason: reason || null,
-          refunded_at: new Date(),
-        },
+    const order = await Order.findOne({
+      _id: order_id,
+      user_id: req.user.id,
+      deleted_at: null,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    items.forEach(returnItem => {
+      const item = order.items.find(i => i.product_id.toString() === returnItem.product_id);
+
+      if (item) {
+        item.return_status = "returned";
+        item.return_reason = reason || null;
+        item.return_requested = new Date();
       }
-    );
+    });
+
+    const allReturned = order.items.every(i => i.return_status === "returned");
+    if (allReturned) {
+      order.order_status = "returned";
+    }
+
+    await order.save();
 
     return res.json({
       success: true,
-      message: "Orders marked as returned successfully",
-      updated: result.modifiedCount,
+      message: "Items marked as returned successfully",
+      order,
     });
 
   } catch (err) {
@@ -1049,5 +1070,5 @@ module.exports = {
   getAllOrdersDetails,
   getOrderDetailsById,
   cancelOrder,
-  returnOrders
+  returnItems
 };
