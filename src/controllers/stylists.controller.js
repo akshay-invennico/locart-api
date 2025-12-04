@@ -433,6 +433,10 @@ const getStylistById = async (req, res) => {
       .populate({
         path: "saloon_id",
         select: "name streetAddress city state zipCode mapLink",
+      })
+      .populate({
+        path: "services",
+        select: "name description duration base_price category_id",
       });
 
     if (!stylist) {
@@ -442,6 +446,29 @@ const getStylistById = async (req, res) => {
       });
     }
 
+    const completedBookings = await Booking.countDocuments({
+      stylist_id: stylistId,
+      booking_status: "completed",
+      deleted_at: null,
+    });
+
+    const earningsAgg = await Booking.aggregate([
+      {
+        $match: {
+          stylist_id: stylist._id,
+          booking_status: "completed",
+          deleted_at: null,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$grand_total" },
+        },
+      },
+    ]);
+
+    const totalEarnings = earningsAgg.length ? earningsAgg[0].totalEarnings : 0;
     let salonInfo = null;
     if (stylist.saloon_id) {
       const salon = stylist.saloon_id;
@@ -453,7 +480,6 @@ const getStylistById = async (req, res) => {
       };
     }
 
-    // Return full stylist details
     return res.status(200).json({
       success: true,
       stylist: {
@@ -467,10 +493,12 @@ const getStylistById = async (req, res) => {
         workingDays: stylist.workingDays,
         workingHours: stylist.workingHours,
         experience_years: stylist.experience_years,
-        rating: stylist.rating || 0,
+        rating: stylist.ratings || 0,
         status: stylist.status || "Active",
-        createdAt: stylist.createdAt,
-        updatedAt: stylist.updatedAt,
+        completedBookings,
+        totalEarnings,
+        createdAt: stylist.created_at,
+        updatedAt: stylist.updated_at,
       },
     });
   } catch (err) {
