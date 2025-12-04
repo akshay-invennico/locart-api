@@ -678,27 +678,7 @@ const universalSearch = async (req, res) => {
       .select("name icon base_price duration")
       .limit(10);
 
-    const stylists = await Stylist.find({
-      deleted_at: null,
-      status: "active",
-    }).populate({
-      path: "user_id",
-      match: { name: searchRegex },
-      select: "name avatar",
-    });
-
-    const stylistResults = stylists
-      .filter((s) => s.user_id)
-      .map((s) => ({
-        _id: s._id,
-        name: s.user_id.name,
-        avatar: s.user_id.avatar,
-        ratings: s.ratings,
-        reviews_count: s.reviews_count,
-      }));
-
     const response = [
-      ...stylistResults.map((item) => ({ type: "stylist", data: item })),
       ...serviceResults.map((item) => ({ type: "service", data: item })),
       ...productResults.map((item) => ({ type: "product", data: item })),
     ];

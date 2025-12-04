@@ -3,13 +3,14 @@ const Service = require("../models/service.model");
 const Salon = require("../models/salons.model");
 const SalonService = require("../models/salonService.model");
 const Stylist = require("../models/stylists.model");
+const { uploadToS3 } = require("../services/awsS3");
 
 // @desc    Create a new service
 // @route   POST /api/services
 // @access  Private (merchant)
 const createService = async (req, res) => {
   try {
-    const { name, description, icon, duration, base_price, category_id } = req.body;
+    const { name, description, duration, base_price, category_id } = req.body;
 
     if (!category_id)
       return res.status(400).json({
@@ -29,6 +30,12 @@ const createService = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Merchant not found" });
+
+    let icon = null;
+    if (req.file) {
+      const uploaded = await uploadToS3(req.file, "icon")
+      icon = uploaded.url;
+    }
 
     const service = await Service.create({
       name,
