@@ -1117,6 +1117,19 @@ const createServiceBooking = async (req, res) => {
       cart_id,
     } = req.body;
 
+    const now = new Date();
+    const bookingDate = new Date(service_date);
+
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const bookingDay = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
+
+    if (bookingDay < today) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot book for previous dates.",
+    });
+  }
+
     const service = await Service.findById(service_id);
     if (!service) {
       return res.status(404).json({
@@ -1158,11 +1171,10 @@ const createServiceBooking = async (req, res) => {
 
     const price = Number(service.base_price);
     const tax_percentage = Number(process.env.TAX_PERCENTAGE) || 0;
-    const partial_percentage =
-      Number(process.env.PARTIAL_AMOUNT_PERCENTAGE) || 0;
+    const partial_percentage = Number(process.env.PARTIAL_AMOUNT_PERCENTAGE) || 0;
 
     const taxes = (price * tax_percentage) / 100;
-    const grand_total = price + taxes;
+    const grand_total = Number((price + taxes).toFixed(2));
 
     let payable_amount = grand_total;
 
@@ -1170,6 +1182,7 @@ const createServiceBooking = async (req, res) => {
       payable_amount = (grand_total * partial_percentage) / 100;
     }
 
+    payable_amount = Number(payable_amount.toFixed(2));
     const booking = await Booking.create({
       booking_number: "BOOK-" + Date.now(),
       user_id: req.user.id,
@@ -1205,10 +1218,11 @@ const createServiceBooking = async (req, res) => {
       service_status: "pending",
     });
 
+    const stripeAmount = Math.round(payable_amount);
     const session = await createCheckoutSessionForService(
       booking,
       service,
-      payable_amount,
+      stripeAmount,
       req
     );
 
