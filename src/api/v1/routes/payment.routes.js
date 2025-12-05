@@ -3,6 +3,7 @@ const router = express.Router();
 const stripe = require('../../../utils/stripe')
 const Order = require('../../../models/order.model');
 const Booking = require("../../../models/booking.model");
+const Cart = require("../../../models/cart.model");
 
 router.post(
   "/webhook",
@@ -26,14 +27,24 @@ router.post(
         const session = event.data.object;
         const orderId = session.metadata.orderId;
         const paymentIntentId = session.payment_intent;
-      
-        await Order.findByIdAndUpdate(orderId, {
-          payment_status: "paid",
-          order_status: "confirmed",
-          stripe_payment_intent: paymentIntentId,
-        });
-      
+
+        const order = await Order.findByIdAndUpdate(
+          orderId,
+          {
+            payment_status: "paid",
+            order_status: "confirmed",
+            stripe_payment_intent: paymentIntentId,
+          },
+          { new: true }
+        );
+
         console.log("Order marked as Paid:", orderId);
+
+        if (order?.cart_id) {
+          await Cart.deleteOne({ _id: order.cart_id });
+        } else {
+          console.log("No cart items to delete for this order.");
+        }
       }
 
       // payment fails 

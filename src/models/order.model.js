@@ -71,6 +71,11 @@ const orderSchema = new mongoose.Schema(
       ref: "ShippingAddress",
     },
 
+    cart_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Cart",
+    },
+
     stripe_session_id: String,
     stripe_payment_intent: String,
 

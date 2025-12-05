@@ -550,7 +550,7 @@ const flagOrder = async (req, res) => {
 
 const createOrder = async (req, res) => {
   try {
-    const { items, address_id } = req.body;
+    const { items, address_id, cart_id } = req.body;
 
     const productIds = items.map(i => i.product_id);
     const products = await Product.find({ _id: { $in: productIds } });
@@ -567,7 +567,6 @@ const createOrder = async (req, res) => {
 
       const price = Number(product.unit_price);
       const quantity = Number(i.quantity);
-
       const lineSubtotal = price * quantity;
 
       finalItems.push({
@@ -597,6 +596,7 @@ const createOrder = async (req, res) => {
       shipping_amount,
       total_amount,
       address_id,
+      cart_id,
     });
 
     const checkoutSession = await createCheckoutSession(order, req);
