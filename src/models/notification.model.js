@@ -6,6 +6,14 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      default: null,
+    },
+
+    recipient_type: {
+      type: String,
+      enum: ["user", "admin"],
+      required: true,
+      default: "user",
     },
 
     title: { type: String, required: true },
@@ -17,6 +25,7 @@ const notificationSchema = new mongoose.Schema(
         "booking",
         "stylish",
         "product",
+        "payment",
         "general"
       ],
       default: "general",

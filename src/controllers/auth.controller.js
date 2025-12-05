@@ -9,6 +9,7 @@ const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
 const { passwordResetTemplate } = require("../emailtemaplate/reset_password");
 const { generateOtp } = require("../utils/otp");
+const Notification = require('../models/notification.model')
 
 // 🏪 Register Merchant
 const registerMerchant = async (req, res) => {
@@ -71,6 +72,13 @@ const registerMerchant = async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(user);
 
     logger.info("✅ Merchant registered successfully with multiple roles");
+    await Notification.create({
+      user_id: null,
+      recipient_type: "admin",
+      title: "New Client Registered",
+      message: `${user.name} (${user.email_address}) just signed up.`,
+      type: "general"
+    });
     return res.status(201).json({
       success: true,
       message: "Merchant registered successfully",

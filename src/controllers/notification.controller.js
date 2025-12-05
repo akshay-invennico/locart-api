@@ -3,9 +3,21 @@ const Notification = require("../models/notification.model");
 const getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
+    const roles = req.user.roles.map((role) => role.role_name);
 
-    const notifications = await Notification.find({ user_id: userId })
-      .sort({ createdAt: -1 });
+    let notifications = [];
+    if (roles.includes("admin")) {
+      notifications = await Notification.find({ recipient_type: "admin" }).sort({ createdAt: -1 });
+      
+
+    } else {
+      notifications = await Notification.find({
+        $or: [
+          { user_id: userId },
+          { recipient_type: "user" }
+        ]
+      }).sort({ createdAt: -1 });
+    }
 
     res.json({
       success: true,
@@ -28,10 +40,20 @@ const markAsRead = async (req, res) => {
 
 const markAllAsRead = async (req, res) => {
   try {
-    await Notification.updateMany(
-      { user_id: req.user.id, is_read: false },
-      { is_read: true }
-    );
+    const userId = req.user.id;
+    const roles = req.user.roles.map((role) => role.role_name);
+
+    if (roles.includes("admin")) {
+      await Notification.deleteMany(
+        { recipient_type: { $in: ["admin", "all"] }, }
+      );
+
+    } else {
+      await Notification.updateMany(
+        { user_id: userId, is_read: false },
+        { is_read: true }
+      );
+    }
 
     res.json({ success: true, message: "All notifications marked as read" });
   } catch (error) {

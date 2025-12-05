@@ -4,6 +4,7 @@ const stripe = require('../../../utils/stripe')
 const Order = require('../../../models/order.model');
 const Booking = require("../../../models/booking.model");
 const Cart = require("../../../models/cart.model");
+const User = require("../../../models/user.model")
 
 router.post(
   "/webhook",
@@ -45,6 +46,23 @@ router.post(
         } else {
           console.log("No cart items to delete for this order.");
         }
+
+        const user = await User.findById({ _id: order.user_id })
+        await Notification.create({
+          user_id: null,
+          recipient_type: "admin",
+          title: "Payment Received",
+          message: `$${order.total_amount} received for Product #${order.order_number} (${user.name}).`,
+          type: "payment"
+        });
+
+        await Notification.create({
+          user_id: null,
+          recipient_type: "admin",
+          title: "Product Order Placed",
+          message: `${user.name} ordered ${order.items[0].name} – Order #${order.order_number}.`,
+          type: "product"
+        });
       }
 
       // payment fails 
@@ -119,10 +137,29 @@ router.post(
 
         await Notification.create({
           user_id: booking.user_id,
+          recipient_type: "user",
           title: "Booking Confirmed",
           message: `Your booking (${booking.booking_number}) has been successfully confirmed 🎉`,
           type: "booking",
         });
+
+        const user = await User.findById({ _id: booking.user_id })
+        await Notification.create({
+          user_id: null,
+          recipient_type: "admin",
+          title: "Payment Received",
+          message: `$${booking.payable_amount} received for Booking #${booking.booking_number} (${user.name}).`,
+          type: "payment"
+        });
+
+        await Notification.create({
+          user_id: null,
+          recipient_type: "admin",
+          title: "New Appointment Booked",
+          message: `${user.name} booked service at ${booking.service_date} at ${booking.service_start_time}.`,
+          type: "booking"
+        });
+        
       }
 
       if (event.type === "payment_intent.payment_failed") {
