@@ -111,6 +111,12 @@ router.post(
 
         console.log("Booking marked as Paid:", bookingId);
 
+        if (booking?.cart_id) {
+          await Cart.deleteOne({ _id: booking.cart_id });
+        } else {
+          console.log("No cart items to delete for this order.");
+        }
+
         await Notification.create({
           user_id: booking.user_id,
           title: "Booking Confirmed",

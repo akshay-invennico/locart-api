@@ -1114,6 +1114,7 @@ const createServiceBooking = async (req, res) => {
       service_start_time,
       service_end_time,
       is_partial_payment,
+      cart_id,
     } = req.body;
 
     const service = await Service.findById(service_id);
@@ -1186,6 +1187,7 @@ const createServiceBooking = async (req, res) => {
       payable_amount,
       partial_percentage: is_partial_payment ? partial_percentage : 0,
       booking_mode: "online",
+      cart_id,
     });
 
 

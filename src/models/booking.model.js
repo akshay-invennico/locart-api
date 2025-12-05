@@ -73,6 +73,11 @@ const bookingSchema = new mongoose.Schema(
     cancelled_at: { type: Date },
     cancellation_reason: { type: String },
     cancelled_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    
+    cart_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Cart",
+    },
 
     deleted_at: { type: Date },
   },
