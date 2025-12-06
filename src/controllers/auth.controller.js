@@ -526,6 +526,11 @@ const verifyOtpMobile = async (req, res) => {
       return res.status(400).json({ success: false, message: "OTP expired" });
     }
 
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpiresAt = undefined;
+    await user.save();
+
     return res.json({ success: true, message: "OTP verified" });
 
   } catch (err) {
