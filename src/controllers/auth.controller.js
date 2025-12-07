@@ -160,6 +160,22 @@ const registerUser = async (req, res) => {
       isVerified: false,
     });
 
+    let customerRole = await Role.findOne({ role_name: "customer" });
+    if (!customerRole) {
+      customerRole = await Role.create({
+        role_name: "customer",
+        description: "Regular customer user",
+        users: [user._id],
+      });
+    } else {
+      customerRole.users.push(user._id);
+      await customerRole.save();
+    }
+
+    await Role.find({
+      _id: { $in: [customerRole._id] },
+    }).select("_id role_name description");
+
     await sendEmail({
       to: email,
       subject: "Verify your email - OTP",

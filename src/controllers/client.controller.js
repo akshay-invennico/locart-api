@@ -31,10 +31,7 @@ const getClients = async (req, res) => {
     limit = parseInt(limit);
 
     // ✅ Get customer role users
-    const customerRole = await Role.findOne({
-      role_name: "customer",
-      deleted_at: null,
-    }).lean();
+    const customerRole = await Role.findOne({ role_name: "customer" });
     if (!customerRole) {
       return res.json({
         success: true,
