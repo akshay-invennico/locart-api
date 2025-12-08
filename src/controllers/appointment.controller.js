@@ -454,6 +454,7 @@ const getAllBookings = async (req, res) => {
 
       return {
         booking_id: booking._id,
+        booking_number: booking.booking_number,
         date: booking.service_date.toISOString().split("T")[0],
         time: booking.service_start_time,
         client: {
@@ -559,6 +560,7 @@ const getBookingById = async (req, res) => {
     // ✅ 5️⃣ Construct final response object
     const responseData = {
       booking_id: booking._id,
+      booking_number: booking.booking_number,
       invoice_id: transaction?.invoice_number || `INV-${booking._id.toString().slice(-6)}`,
       date: booking.service_date
         ? booking.service_date.toISOString().split("T")[0]

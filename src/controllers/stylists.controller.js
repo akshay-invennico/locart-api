@@ -35,7 +35,6 @@ const createStylist = async (req, res) => {
 
     const profilePhoto = req.file ? req.file.path : null;
     const password = generateRandomPassword();
-
     const merchantUserId = req.user.id;
     const merchantRole = await Role.findOne({
       role_name: "merchant",
