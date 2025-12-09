@@ -27,11 +27,19 @@ const {
   getAvailableStylists,
   getAllStylistsDetails
 } = require("../../../controllers/stylists.controller");
+const { uploadFields } = require("../../../middlewares/uploadMiddleware");
 
 router
   .route("/")
   .get(authMiddleware(["merchant", "customer", "loctitian"]), getMySalon)
-  .post(authMiddleware(["merchant"]), upload.none(), createSalon)
+  .post(
+    authMiddleware(["merchant"]),
+    uploadFields([
+      { name: "logo", maxCount: 1 },
+      { name: "coverImage", maxCount: 1 }
+    ]),
+    createSalon
+  )
   .patch(authMiddleware(["merchant"]), addAmenitiesToSalon);
 
 router.route("/locart").get(authMiddleware(["merchant", "customer", "loctitian"]), getSalon)
@@ -60,7 +68,7 @@ router
   .post(authMiddleware(["merchant"]), upload.none(), createStylist)
   .patch(authMiddleware(["merchant"]), upload.none(), updateStylist);
 
-  router
+router
   .route("/stylists/details")
   .get(authMiddleware(["merchant", "customer", "loctitian"]), getAllStylistsDetails);
 
@@ -73,7 +81,10 @@ router
 
 router
   .route("/:id")
-  .patch(authMiddleware(["merchant"]), upload.none(), updateSalon)
+  .patch(authMiddleware(["merchant"]), uploadFields([
+    { name: "logo", maxCount: 1 },
+    { name: "coverImage", maxCount: 1 }
+  ]), updateSalon)
   .delete(authMiddleware(["merchant"]), deleteSalon);
 
 module.exports = router;

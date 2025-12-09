@@ -87,7 +87,7 @@ const salonSchema = new mongoose.Schema(
     instagram: {
       type: String,
     },
-    tiktok: {
+    linkedin: {
       type: String,
     },
     twitter: {

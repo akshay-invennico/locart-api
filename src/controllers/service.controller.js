@@ -252,6 +252,16 @@ const getServiceById = async (req, res) => {
 // @access  Private (merchant)
 const updateService = async (req, res) => {
   try {
+    const { name, description, duration, base_price, category_id, status } =
+      req.body;
+
+    if (duration && Number(duration) < 15) {
+      return res.status(400).json({
+        success: false,
+        message: "Service duration must be at least 15 minutes",
+      });
+    }
+
     const merchant = await Merchant.findOne({ user_id: req.user.id });
     if (!merchant)
       return res
@@ -276,16 +286,39 @@ const updateService = async (req, res) => {
         .json({ success: false, message: "Service not found" });
 
     const service = await Service.findById(req.params.id);
-    Object.assign(service, req.body);
+    if (!service)
+      return res
+        .status(404)
+        .json({ success: false, message: "Service not found" });
+
+    let iconUrl = service.icon;
+
+    if (req.file) {
+      const uploaded = await uploadToS3(req.file, "icon");
+      iconUrl = uploaded.url;
+    }
+
+    service.name = name?.trim() || service.name;
+    service.description = description ?? service.description;
+    service.duration = duration ?? service.duration;
+    service.base_price = base_price ?? service.base_price;
+    service.category_id = category_id ?? service.category_id;
+    service.icon = iconUrl;
+    service.status = status?.toLowerCase() || service.status;
+
     await service.save();
 
-    res
-      .status(200)
-      .json({ success: true, message: "Service updated", data: service });
+    res.status(200).json({
+      success: true,
+      message: "Service updated successfully",
+      data: service,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Server Error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
   }
 };
 

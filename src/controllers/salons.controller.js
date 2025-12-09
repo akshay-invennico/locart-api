@@ -2,6 +2,7 @@ const Merchant = require("../models/merchant.model");
 const Salon = require("../models/salons.model");
 const Holiday = require("../models/holidays.model");
 const mongoose = require("mongoose");
+const { uploadToS3 } = require("../services/awsS3");
 
 
 // @desc    Create a new salon (merchant only)
@@ -21,7 +22,7 @@ const createSalon = async (req, res) => {
       website,
       facebook,
       instagram,
-      tiktok,
+      linkedin,
       twitter,
       about,
     } = req.body;
@@ -57,13 +58,26 @@ const createSalon = async (req, res) => {
       });
     }
 
-    const logo = "https://placehold.co/200x200?text=Logo";
-    const coverImage = "https://placehold.co/600x300?text=Cover";
+    let logoUrl = null;
+    let coverImageUrl = null;
+
+    if (req.files?.logo?.[0]) {
+      const uploadedLogo = await uploadToS3(req.files.logo[0], "salons");
+      logoUrl = uploadedLogo.url;
+    }
+
+    if (req.files?.coverImage?.[0]) {
+      const uploadedCover = await uploadToS3(req.files.coverImage[0], "salons");
+      coverImageUrl = uploadedCover.url;
+    }
+
+    if (!logoUrl) logoUrl = "https://placehold.co/200x200?text=Logo";
+    if (!coverImageUrl) coverImageUrl = "https://placehold.co/600x300?text=Cover";
 
     const salon = new Salon({
       merchant_id: merchant._id,
-      logo,
-      coverImage,
+      logo: logoUrl,
+      coverImage: coverImageUrl,
       name,
       streetAddress,
       city,
@@ -75,7 +89,7 @@ const createSalon = async (req, res) => {
       website,
       facebook,
       instagram,
-      tiktok,
+      linkedin,
       twitter,
       about,
     });
@@ -181,16 +195,16 @@ const updateSalon = async (req, res) => {
       website,
       facebook,
       instagram,
-      tiktok,
+      linkedin,
       twitter,
       about,
     } = req.body;
 
-    const bodyLogo = req.body.logo;
-    const bodyCoverImage = req.body.coverImage;
+    const logoFile = req.files?.logo?.[0] || null;
+    const coverFile = req.files?.coverImage?.[0] || null;
 
     let salon = null;
-    if (req.params && req.params.id) {
+    if (req.params?.id) {
       salon = await Salon.findOne({
         _id: req.params.id,
         merchant_id: merchant._id,
@@ -213,23 +227,21 @@ const updateSalon = async (req, res) => {
     }
 
     if (email) {
-      const normalized = email.trim().toLowerCase();
-      const isSameEmail =
-        (salon.email || "").toLowerCase() === normalized;
+      const normalizedEmail = email.trim().toLowerCase();
+      const isSameEmail = (salon.email || "").toLowerCase() === normalizedEmail;
 
       if (!isSameEmail) {
-        const existing = await Salon.findOne({
-          email: normalized,
-          deleted_at: null,
+        const existingSalon = await Salon.findOne({
+          email: normalizedEmail,
           _id: { $ne: salon._id },
         });
-        if (existing) {
+        if (existingSalon) {
           return res.status(400).json({
             success: false,
             message: "A salon with this email already exists",
           });
         }
-        salon.email = normalized;
+        salon.email = normalizedEmail;
       }
     }
 
@@ -243,13 +255,19 @@ const updateSalon = async (req, res) => {
     salon.website = website ?? salon.website;
     salon.facebook = facebook ?? salon.facebook;
     salon.instagram = instagram ?? salon.instagram;
-    salon.tiktok = tiktok ?? salon.tiktok;
+    salon.linkedin = linkedin ?? salon.linkedin;
     salon.twitter = twitter ?? salon.twitter;
     salon.about = about ?? salon.about;
 
-    salon.logo = bodyLogo || salon.logo || null;
-    salon.coverImage =
-      bodyCoverImage || salon.coverImage || null;
+    if (logoFile) {
+      const uploadedLogo = await uploadToS3(logoFile, "salons");
+      salon.logo = uploadedLogo.url;
+    }
+
+    if (coverFile) {
+      const uploadedCover = await uploadToS3(coverFile, "salons");
+      salon.coverImage = uploadedCover.url;
+    }
 
     await salon.save();
 
