@@ -7,7 +7,6 @@ const { swaggerUi, swaggerDocument } = require("./swagger");
 const errorMiddleware = require("./middlewares/error.middleware");
 const loggingMiddleware = require("./middlewares/loggingMiddleware");
 const logger = require("./utils/logger");
-const rateLimiter = require("./middlewares/rateLimiter");
 const cors = require('cors');
 
 // routes
@@ -38,7 +37,6 @@ app.use(helmet());
 app.use("/api/v1/payments", require("./api/v1/routes/payment.routes"));
 
 app.use(express.json());
-app.use("/api", rateLimiter);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(cors({
   origin: ["http://localhost:3000", "http://127.0.0.1:3000", "https://locart.vercel.app"],
