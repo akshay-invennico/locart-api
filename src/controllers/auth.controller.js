@@ -72,13 +72,6 @@ const registerMerchant = async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(user);
 
     logger.info("✅ Merchant registered successfully with multiple roles");
-    await Notification.create({
-      user_id: null,
-      recipient_type: "admin",
-      title: "New Client Registered",
-      message: `${user.name} (${user.email_address}) just signed up.`,
-      type: "general"
-    });
     return res.status(201).json({
       success: true,
       message: "Merchant registered successfully",
@@ -108,7 +101,7 @@ const registerMerchant = async (req, res) => {
 };
 
 const registerUser = async (req, res) => {
-  try {    
+  try {
     const { fullName, gender, dateOfBirth, dialingCode, phone, email, password } = req.body;
 
     if (!fullName || !email || !password) {
@@ -175,6 +168,14 @@ const registerUser = async (req, res) => {
     await Role.find({
       _id: { $in: [customerRole._id] },
     }).select("_id role_name description");
+
+    await Notification.create({
+      user_id: null,
+      recipient_type: "admin",
+      title: "New Client Registered",
+      message: `${user.name} (${user.email_address}) just signed up.`,
+      type: "general"
+    });
 
     await sendEmail({
       to: email,
@@ -358,14 +359,14 @@ const loginUser = async (req, res) => {
       });
     }
 
-    if(!user.isVerified){
+    if (!user.isVerified) {
       return res.status(401).json({
         success: false,
         message: "User is not verified",
       });
     }
 
-    if(user.status === "inactive") {
+    if (user.status === "inactive") {
       return res.status(401).json({
         success: false,
         message: "Account has been deleted",
@@ -569,7 +570,7 @@ const resetPasswordMobile = async (req, res) => {
     }
 
     user.password = password;
-    
+
     user.otp = null;
     user.otpExpiresAt = null;
 
