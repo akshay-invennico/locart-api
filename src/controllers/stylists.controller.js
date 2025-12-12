@@ -315,7 +315,7 @@ const getAllStylists = async (req, res) => {
     const stylists = await Stylist.find()
       .populate({
         path: "user_id",
-        select: "name email_address phone_number profile_photo",
+        select: "name email_address phone_number profile_picture",
       })
       .skip(skip)
       .limit(limit);
@@ -326,7 +326,7 @@ const getAllStylists = async (req, res) => {
     // Format response
     const formattedStylists = stylists.map((stylist) => ({
       _id: stylist._id,
-      avatarUrl: stylist.user_id?.profile_photo || null,
+      avatarUrl: stylist.user_id?.profile_picture || null,
       fullName: stylist.user_id?.name || "N/A",
       email: stylist.user_id?.email_address || "N/A",
       phone: stylist.user_id?.phone_number || "N/A",
